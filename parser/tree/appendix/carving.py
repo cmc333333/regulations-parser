@@ -1,16 +1,20 @@
 import re
-from parser import search
+from parser.search import segments as split_by_offset
+from parser.search import find_start as start_of_heading
+from parser.search import find_offsets as start_end_of
 from parser.tree.supplement import find_supplement_start
 
-
-def find_appendix_start(text):
-    """Find the start of the appendix (e.g. Appendix A)"""
-    return search.find_start(text, u'Appendix', ur'[A-Z]')
+#   Find appendices in the regulation
+def appendices(text):
+    """Carve out a list of all the appendix offsets."""
+    def offsets_fn(remaining_text, idx, excludes):
+        return find_next_appendix_offsets(remaining_text)
+    return split_by_offset(text, offsets_fn)
 
 
 def find_next_appendix_offsets(text):
     """Find the start/end of the next appendix. Accounts for supplements"""
-    offsets = search.find_offsets(text, find_appendix_start)
+    offsets = start_end_of(text, find_appendix_start)
     if offsets is None:
         return None
 
@@ -23,11 +27,28 @@ def find_next_appendix_offsets(text):
     return (start, end)
 
 
-def appendices(text):
-    """Carve out a list of all the appendix offsets."""
+def find_appendix_start(text):
+    """Find the start of the appendix (e.g. Appendix A)"""
+    return start_of_heading(text, u'Appendix', ur'[A-Z]')
+
+
+def get_appendix_letter(title, part):
+    """Pull out appendix letter from header. Assumes proper format"""
+    return re.match(ur'^Appendix ([A-Z]+) to Part %d.*$'%part, title).group(1)
+
+
+#   Find sections within an appendix
+def appendix_sections(text, appendix):
+    """Split an appendix into its sections. Return the offsets"""
     def offsets_fn(remaining_text, idx, excludes):
-        return find_next_appendix_offsets(remaining_text)
-    return search.segments(text, offsets_fn)
+        return find_next_appendix_section_offsets(remaining_text, appendix)
+    return split_by_offset(text, offsets_fn)
+
+
+def find_next_appendix_section_offsets(text, appendix):
+    """Find the start/end of the next appendix section."""
+    return start_end_of(text, lambda t:find_appendix_section_start(t,
+        appendix))
 
 
 def find_appendix_section_start(text, appendix):
@@ -35,24 +56,6 @@ def find_appendix_section_start(text, appendix):
     match = re.search(ur'%s-\d+' % appendix, text, re.MULTILINE)
     if match:
         return match.start()
-
-
-def find_next_appendix_section_offsets(text, appendix):
-    """Find the start/end of the next appendix section."""
-    return search.find_offsets(text, lambda t:find_appendix_section_start(t,
-        appendix))
-
-
-def appendix_sections(text, appendix):
-    """Split an appendix into its sections. Return the offsets"""
-    def offsets_fn(remaining_text, idx, excludes):
-        return find_next_appendix_section_offsets(remaining_text, appendix)
-    return search.segments(text, offsets_fn)
-
-
-def get_appendix_letter(title, part):
-    """Pull out appendix letter from header. Assumes proper format"""
-    return re.match(ur'^Appendix ([A-Z]+) to Part %d.*$'%part, title).group(1)
 
 
 def get_appendix_section_number(title, appendix_letter):
