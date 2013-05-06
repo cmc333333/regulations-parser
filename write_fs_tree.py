@@ -5,12 +5,12 @@ from parser.tree.interpretation.tree import build as build_interp_tree
 from parser.tree.reg_text import build_reg_text_tree
 from parser.tree.struct import walk
 from parser.tree.supplement import find_supplement_start
+import shutil
 import sys
 
 def write_node(node, root_dir):
-    dir_prefix = os.sep.join([root_dir] + node['label']['parts']) + os.sep
-    if not os.path.exists(dir_prefix):
-        os.makedirs(dir_prefix)
+    dir_prefix = root_dir + os.sep.join(node['label']['parts']) + os.sep
+    os.makedirs(dir_prefix)
     with codecs.open(dir_prefix + "text.txt", 'w', encoding='utf-8') as f:
         f.write(node['text'])
     if 'title' in node['label']:
@@ -37,5 +37,9 @@ if __name__ == "__main__":
     root_dir = sys.argv[1]
     if not root_dir.endswith(os.sep):
         root_dir += os.sep
+
+    #   wipe out any existing data
+    if os.path.exists(root_dir + reg_tree['label']['text']):
+        shutil.rmtree(root_dir + reg_tree['label']['text'])
 
     walk(reg_tree, lambda node: write_node(node, root_dir))
