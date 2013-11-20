@@ -55,6 +55,65 @@ class RegTextTest(TestCase):
         self.assertEqual(u'§ 8675.309 [Reserved]', node.title)
         self.assertEqual([], node.children)
 
+    def test_build_section_ambiguous(self):
+        xml = u"""
+            <SECTION>
+                <SECTNO>§ 8675.309</SECTNO>
+                <SUBJECT>Definitions.</SUBJECT>
+                <P>(g) Some Content</P>
+                <P>(h) H Starts</P>
+                <P>(1) H-1</P>
+                <P>(2) H-2</P>
+                <P>(i) Is this 8675-309-h-2-i or 8675-309-i</P>
+                <P>%s</P>
+            </SECTION>
+        """
+        n8675_309 = build_section('8675', etree.fromstring(xml % '(ii) A'))
+        n8675_309_h = n8675_309.children[1]
+        n8675_309_h_2 = n8675_309_h.children[1]
+        self.assertEqual(2, len(n8675_309.children))
+        self.assertEqual(2, len(n8675_309_h.children))
+        self.assertEqual(2, len(n8675_309_h_2.children))
+
+        n8675_309 = build_section('8675', etree.fromstring(xml % '(A) B'))
+        n8675_309_h = n8675_309.children[1]
+        n8675_309_h_2 = n8675_309_h.children[1]
+        n8675_309_h_2_i = n8675_309_h_2.children[0]
+        self.assertEqual(2, len(n8675_309.children))
+        self.assertEqual(2, len(n8675_309_h.children))
+        self.assertEqual(1, len(n8675_309_h_2.children))
+        self.assertEqual(1, len(n8675_309_h_2_i.children))
+
+        n8675_309 = build_section('8675', etree.fromstring(xml % '(1) C'))
+        self.assertEqual(3, len(n8675_309.children))
+
+        n8675_309 = build_section('8675', etree.fromstring(xml % '(3) D'))
+        n8675_309_h = n8675_309.children[1]
+        n8675_309_h_2 = n8675_309_h.children[1]
+        self.assertEqual(2, len(n8675_309.children))
+        self.assertEqual(3, len(n8675_309_h.children))
+        self.assertEqual(1, len(n8675_309_h_2.children))
+
+    def test_build_section_collapsed(self):
+        xml = u"""
+            <SECTION>
+                <SECTNO>§ 8675.309</SECTNO>
+                <SUBJECT>Definitions.</SUBJECT>
+                <P>(a) aaa</P>
+                <P>(1) 111</P>
+                <P>(2) 222—(i) iii. (A) AAA</P>
+                <P>(B) BBB></P>
+            </SECTION>
+        """
+        n309 = build_section('8675', etree.fromstring(xml))
+        self.assertEqual(1, len(n309.children))
+        n309_a = n309.children[0]
+        self.assertEqual(2, len(n309_a.children))
+        n309_a_2 = n309_a.children[1]
+        self.assertEqual(1, len(n309_a_2.children))
+        n309_a_2_i = n309_a_2.children[0]
+        self.assertEqual(2, len(n309_a_2_i.children))
+
     def test_get_title(self):
         xml = u"""
             <PART>

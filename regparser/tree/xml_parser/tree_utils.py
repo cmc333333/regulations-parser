@@ -1,6 +1,7 @@
 import HTMLParser
 from lxml import etree, objectify
-from regparser.grammar.common import any_depth_p, xml_collapsed_paragraph
+from regparser.grammar.common import any_depth_p, any_p
+from regparser.grammar.internal_citations import regtext_citation
 from itertools import chain
 
 
@@ -56,7 +57,17 @@ def split_text(text, tokens):
 def get_collapsed_markers(text):
     """ We have collapsed markers that look something like this:
     (a) some text -(1) more text. We pull out -(1) type markers here. """
-    return [c[0][0] for c, s, e in xml_collapsed_paragraph.scanString(text)]
+    exclude = [(start, end) for _, start, end in
+               regtext_citation.scanString(text)]
+    matches = list(any_p.scanString(text))
+    #   remove matches at the beginning
+    while matches and matches[0][1] == 0:
+        matches = matches[1:]
+    #   remove any that overlaps with exclusions
+    matches = [match for match in matches if not 
+               any(es <= match[1] and ee >= match[2] for es in exclude)]
+    #   get the letters
+    return [match[0][0] for match in matches]
 
 
 def get_paragraph_markers(text):

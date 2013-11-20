@@ -9,18 +9,40 @@ from regparser.tree import reg_text
 from regparser.tree.xml_parser import tree_utils
 
 
-def determine_level(c, current_level):
+def determine_level(c, current_level, next_marker=None):
     """ Regulation paragraphs are hierarchical. This determines which level
-    the paragraph is at. """
-    if c in p_levels[2] and (current_level > 1 or c not in p_levels[0]):
-        p_level = 3
-    elif c in p_levels[0]:
-        p_level = 1
-    elif c in p_levels[1]:
-        p_level = 2
-    elif c in p_levels[3]:
-        p_level = 4
-    return p_level
+    the paragraph is at. Convert between p_level indexing and depth here by
+    adding one"""
+    potential = [i for i in range(len(p_levels)) if c in p_levels[i]]
+    #   We want to account for later levels (e.g. roman numerals) first
+    potential = list(reversed(potential))
+
+    if len(potential) > 1 and next_marker:     # ambiguity
+        following = [i for i in range(len(p_levels))
+                     if next_marker in p_levels[i]]
+        following = list(reversed(following))
+
+        #   Add character index
+        potential = [(level, p_levels[level].index(c)) for level in potential]
+        following = [(level, p_levels[level].index(next_marker))
+                     for level in following]
+
+        #   Check if we can be certain using the following marker
+        for pot_level, pot_idx in potential:
+            for next_level, next_idx in following:
+                if (    #   E.g. i followed by A or i followed by 1
+                    (next_idx == 0 and next_level == pot_level + 1)
+                    or  #   E.g. i followed by ii
+                    (next_level == pot_level and next_idx == pot_idx + 1)
+                    or  #   E.g. i followed by 3
+                    (next_level < pot_level and next_idx > 0)):
+                    return pot_level + 1
+        print "Couldn't figure out:"
+        print potential
+        print following
+        
+
+    return potential[0] + 1
 
 
 def get_reg_part(reg_doc):
@@ -128,11 +150,27 @@ def build_section(reg_part, section_xml):
             else:
                 markers_and_text = get_markers_and_text(ch, markers_list)
 
-                for m, node_text in markers_and_text:
+                for idx, pair in enumerate(markers_and_text):
+                    m, node_text = pair
                     n = Node(node_text[0], [], [str(m)])
                     n.tagged_text = unicode(node_text[1])
 
-                    new_p_level = determine_level(m, p_level)
+                    print text
+                    sib = ch.getnext()
+                    if idx < len(markers_and_text) - 1:
+                        new_p_level = determine_level(m, p_level,
+                                                      markers_list[idx+1])
+                    elif sib is not None:
+                        next_text = ' '.join([sib.text]
+                                             + [s.tail for s in sib if s.tail])
+                        next_markers = get_markers(next_text)
+                        if next_markers:
+                            new_p_level = determine_level(m, p_level,
+                                                          next_markers[0])
+                        else:
+                            new_p_level = determine_level(m, p_level)
+                    else:
+                        new_p_level = determine_level(m, p_level)
                     last = m_stack.peek()
                     if len(last) == 0:
                         m_stack.push_last((new_p_level, n))
