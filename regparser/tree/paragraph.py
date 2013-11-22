@@ -12,9 +12,8 @@ p_levels = [
     [str(i) for i in range(1, 51)],
     list(itertools.islice(roman_nums(), 0, 50)),
     list(string.ascii_uppercase),
-    ['<E>' + str(i) + '</E>' for i in string.ascii_lowercase]
-    #   Technically, there's italics (roman), but we aren't
-    #   handling that yet
+    ['<E>' + str(i) + '</E>' for i in range(1, 51)],
+    ['<E>' + i + '</E>' for i in itertools.islice(roman_nums(), 0, 50)],
 ]
 
 

@@ -50,6 +50,12 @@ class TreeUtilsTest(unittest.TestCase):
 
         self.assertEquals('(a)Fruit.Apps, and pins', result)
 
+        text = '<P><E T="03">Section</E> 111.22(c)(4)(v)(F)(<E T="02">7</E>)'
+        text += '</P>'
+        doc = etree.fromstring(text)
+        result = tree_utils.get_node_text(doc)
+        self.assertEquals('Section 111.22(c)(4)(v)(F)(7)', result)
+
     def test_unwind_stack(self):
         level_one_n = Node(label=['272'])
         level_two_n = Node(label=['a'])
@@ -70,3 +76,8 @@ class TreeUtilsTest(unittest.TestCase):
         text = u'(a) <E T="03">Transfer </E>—(1) <E T="03">Notice.</E> follow'
         markers = tree_utils.get_collapsed_markers(text)
         self.assertEqual(markers, [u'1'])
+
+    def test_get_collapsed_markers_underparagraph(self):
+        text = "(vii) Text text underparagraphs (a)(1)(i) through (vi) of"
+        markers = tree_utils.get_collapsed_markers(text)
+        self.assertEqual(markers, [])

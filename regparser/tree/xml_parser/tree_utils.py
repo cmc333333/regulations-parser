@@ -1,8 +1,13 @@
+#vim: set encoding=utf-8
+from itertools import chain
+import re
+
 import HTMLParser
 from lxml import etree, objectify
 from regparser.grammar.common import any_depth_p, any_p
+from regparser.grammar.internal_citations import appendix_citation
 from regparser.grammar.internal_citations import regtext_citation
-from itertools import chain
+from regparser.tree.paragraph import p_levels
 
 
 def prepend_parts(parts_prefix, n):
@@ -54,26 +59,41 @@ def split_text(text, tokens):
     return texts
 
 
+first_markers = [re.compile(ur'[\s|^|,|-|—]\((' + re.escape(level[0]) + ')\)')
+                 for level in p_levels]
+
+
 def get_collapsed_markers(text):
     """ We have collapsed markers that look something like this:
     (a) some text -(1) more text. We pull out -(1) type markers here. """
     exclude = [(start, end) for _, start, end in
                regtext_citation.scanString(text)]
-    matches = list(any_p.scanString(text))
+    exclude += [(start, end) for _, start, end in
+                appendix_citation.scanString(text)]
+
+    matches = []
+    for marker in first_markers:
+        lst = [m for m in marker.finditer(text) if m.start() > 0]
+        matches.extend([m for m in marker.finditer(text) if m.start() > 0])
+
+        
+
     #   remove matches at the beginning
-    while matches and matches[0][1] == 0:
+    start = text.find(')') + 1
+    while matches and matches[0].start() == start:
+        start = matches[0].end()
         matches = matches[1:]
-    #   remove any that overlaps with exclusions
-    matches = [match for match in matches if not 
-               any(es <= match[1] and ee >= match[2] for es in exclude)]
+
+    #   remove any that overlap with exclusions
+    matches = [m for m in matches if not any(es <= m.start() and ee >= m.end()
+               for es, ee in exclude)]
     #   get the letters
-    return [match[0][0] for match in matches]
+    return [match.group(1) for match in matches]
 
 
 def get_paragraph_markers(text):
     """ From a body of text that contains paragraph markers, extract the
     markers. """
-
     for citation, start, end in any_depth_p.scanString(text):
         if start == 0:
             return citation[0][0]
@@ -103,7 +123,7 @@ def get_node_text_tags_preserved(node):
     for c in node:
         if c.tag == 'E':
             #xlmns non-sense makes me do this.
-            e_tag = '<E T="03">%s</E>' % c.text
+            e_tag = '<E>%s</E>' % c.text
             node_text += e_tag
         if c.tail is not None:
             node_text += c.tail

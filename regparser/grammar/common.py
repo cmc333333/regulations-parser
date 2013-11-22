@@ -3,7 +3,7 @@ import string
 
 from pyparsing import alphanums, CaselessLiteral, Literal, OneOrMore, Optional
 from pyparsing import Regex, Suppress, Word, WordEnd, WordStart
-from pyparsing import LineEnd, LineStart, SkipTo
+from pyparsing import LineEnd, LineStart, SkipTo, FollowedBy
 
 
 def WordBoundaries(grammar):
@@ -12,6 +12,9 @@ def WordBoundaries(grammar):
 
 def Marker(txt):
     return Suppress(WordBoundaries(CaselessLiteral(txt)))
+
+def SuffixMarker(text):
+    return Suppress(CaselessLiteral(text) + WordEnd(alphanums))
 
 # Atomic components; probably shouldn't use these directly
 lower_p = (
@@ -28,12 +31,22 @@ roman_p = (
     Suppress(")"))
 upper_p = (
     Suppress("(")
-    + Word(string.ascii_uppercase).setResultsName("level4")
+    + Word(string.ascii_uppercase, max=1).setResultsName("level4")
     + Suppress(")"))
 em_digit_p = (
-    Suppress(Regex(r"\(<E[^>]*>"))
-    + Word(string.digits).setResultsName("level5")
-    + Suppress("</E>)"))
+    Suppress("(")
+        + (Regex(r"<E[^>]*>")
+           + Word(string.digits)
+           + "</E>").setParseAction(
+               lambda source, location, tokens: ''.join(tokens)).setResultsName("level5")
+    + Suppress(")"))
+em_roman_p = (
+    Suppress("(")
+        + (Regex(r"<E[^>]*>")
+           + Word("ivxlcdm")
+           + "</E>").setParseAction(
+               lambda source, location, tokens: ''.join(tokens)).setResultsName("level5")
+    + Suppress(")"))
 # Our support for italicized paragraph markers isn't quite up to par yet;
 # allow a plaintext version of italic paragraph markers
 plaintext_level5_p = (
@@ -53,8 +66,8 @@ appendix_letter = Word(string.ascii_uppercase).setResultsName("letter")
 section_marker = Suppress(Regex(u"§|Section|section"))
 section_markers = Suppress(Regex(u"§§|Sections|sections"))
 
-paragraph_marker = Marker("paragraph")
-paragraph_markers = Marker("paragraphs")
+paragraph_marker = SuffixMarker("paragraph")
+paragraph_markers = SuffixMarker("paragraphs")
 
 part_marker = Marker("part")
 part_markers = Marker("parts")
@@ -81,19 +94,21 @@ interpretation_marker = (
 )
 
 #   Minimally composed
-depth4_p = upper_p + Optional(em_digit_p) + Optional(plaintext_level5_p)
+depth5_p = (em_digit_p | plaintext_level5_p) + Optional(em_roman_p)
+depth4_p = upper_p + Optional(depth5_p)
 depth3_p = roman_p + Optional(depth4_p)
 depth2_p = digit_p + Optional(depth3_p)
-depth1_p = lower_p + Optional(depth2_p)
+depth1_p = lower_p + ~FollowedBy(upper_p) + Optional(depth2_p)
 
 any_depth_p = (
     depth1_p.copy().setResultsName("depth1_p")
     | depth2_p.copy().setResultsName("depth2_p")
     | depth3_p.copy().setResultsName("depth3_p")
     | depth4_p.copy().setResultsName("depth4_p")
-    | em_digit_p.copy().setResultsName("depth5_p"))
+    | em_digit_p.copy().setResultsName("depth5_p")
+    | em_roman_p.copy().setResultsName("depth6_p"))
 
-any_p = lower_p | digit_p | roman_p | upper_p | em_digit_p
+any_p = lower_p | digit_p | roman_p | upper_p | em_digit_p | em_roman_p
 
 xml_collapsed_paragraph = Suppress(Literal(u'—')) + any_p
 part_section = part + Suppress(".") + section
@@ -123,7 +138,7 @@ appendix_shorthand = (
     appendix_letter
     + Suppress("-")
     + section
-    + Optional(lower_p)
+    + Optional(any_p)
 )
 
 marker_interpretation = interpretation_marker + marker_part

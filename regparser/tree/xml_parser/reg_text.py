@@ -37,9 +37,6 @@ def determine_level(c, current_level, next_marker=None):
                     or  #   E.g. i followed by 3
                     (next_level < pot_level and next_idx > 0)):
                     return pot_level + 1
-        print "Couldn't figure out:"
-        print potential
-        print following
         
 
     return potential[0] + 1
@@ -140,8 +137,9 @@ def build_section(reg_part, section_xml):
     section_texts = []
     for ch in section_xml.getchildren():
         if ch.tag == 'P':
-            text = ' '.join([ch.text] + [c.tail for c in ch if c.tail])
-            markers_list = get_markers(text)
+            text = tree_utils.get_node_text(ch)
+            tagged_text = tree_utils.get_node_text_tags_preserved(ch)
+            markers_list = get_markers(tagged_text)
 
             if not markers_list:
                 node_text = tree_utils.get_node_text(ch)
@@ -152,17 +150,17 @@ def build_section(reg_part, section_xml):
 
                 for idx, pair in enumerate(markers_and_text):
                     m, node_text = pair
+                    if len(m) == 1 and len(node_text[1]) > 1 and node_text[1][1] == '<':
+                        m = '<E>' + m + '</E>'
                     n = Node(node_text[0], [], [str(m)])
                     n.tagged_text = unicode(node_text[1])
 
-                    print text
                     sib = ch.getnext()
                     if idx < len(markers_and_text) - 1:
                         new_p_level = determine_level(m, p_level,
                                                       markers_list[idx+1])
                     elif sib is not None:
-                        next_text = ' '.join([sib.text]
-                                             + [s.tail for s in sib if s.tail])
+                        next_text = tree_utils.get_node_text_tags_preserved(sib)
                         next_markers = get_markers(next_text)
                         if next_markers:
                             new_p_level = determine_level(m, p_level,
@@ -206,4 +204,11 @@ def build_section(reg_part, section_xml):
         while m_stack.size() > 1:
             tree_utils.unwind_stack(m_stack)
 
-        return m_stack.pop()[0][1]
+        node = m_stack.pop()[0][1]
+        def clean_label(n):
+            n.label = [l.lstrip('<E>').rstrip('</E>') for l in n.label]
+            for c in n.children:
+                clean_label(c)
+        clean_label(node)
+
+        return node

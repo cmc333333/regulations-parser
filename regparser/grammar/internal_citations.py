@@ -1,21 +1,24 @@
 #vim: set encoding=utf-8
 import string
 
-from pyparsing import OneOrMore, Optional, Regex, Suppress, Word
-from pyparsing import ParseResults
+from pyparsing import Literal, OneOrMore, Optional, Regex, Suppress, Word
+from pyparsing import ParseResults, ZeroOrMore
 
 from regparser.grammar import common
 from regparser.grammar.utils import keep_pos
 
 conj_phrases = Suppress(
-    Regex(",|and|or|through")
+    Optional(")")
+    + (Regex(r",|and|or|through|-") | (Literal("(except") + Literal("for")))
     + Optional("and")
     + Optional("or"))
 
 paragraph_tail = OneOrMore(
     conj_phrases +
     common.any_depth_p.setParseAction(keep_pos).setResultsName(
-        "p_tail", listAllMatches=True))
+        "p_tail", listAllMatches=True)
+    + Optional(common.Marker("of") + common.Marker("this")
+               + common.Marker("section")))
 
 single_section = (
         common.part_section
@@ -35,10 +38,10 @@ multiple_sections = (
         + single_section.setResultsName("s_tail", listAllMatches=True)))
 
 single_paragraph = (
-    common.paragraph_marker
+    (common.paragraph_marker | common.paragraph_markers)
     + common.any_depth_p.setResultsName("p_head")
     #   veeeery similar to paragraph_tail, but is optional
-    + Optional(
+    + ZeroOrMore(
         conj_phrases +
         common.any_depth_p.setParseAction(keep_pos).setResultsName(
             "p_tail", listAllMatches=True))
@@ -64,6 +67,7 @@ appendix_citation = (
     + Word(string.digits).setResultsName("section")
     + Optional(common.depth1_p.copy().setParseAction(keep_pos).setResultsName("p_head")
         + Optional(paragraph_tail))
+    + Optional(common.any_p)
 )
 
 single_comment = common.single_comment.copy().setParseAction(keep_pos)
