@@ -201,3 +201,26 @@ class NoticeBuildTest(TestCase):
         self.assertEqual(changes['op'], 'updated')
         self.assertTrue(
             changes['text'].startswith(u'(b) This part carries out.\n'))
+
+    def test_process_amendments_other_reg(self):
+        """Some notices apply to multiple regs. For now, just ignore the
+        sections not associated with the reg we're focused on"""
+        xml = u"""
+            <REGTEXT PART="106" TITLE="12">
+            <AMDPAR> 
+            3. In § 106.1, revise paragraph (b) to read as follows:
+            </AMDPAR>
+            <SECTION>
+                <SECTNO>§ 106.1</SECTNO>
+                <SUBJECT>Purpose.</SUBJECT>
+                <P>(a) Content</P>
+            </SECTION>
+            </REGTEXT>
+        """
+
+        notice_xml = etree.fromstring(xml)
+        notice = {'cfr_part':'105'}
+        build.process_amendments(notice, notice_xml)
+
+        self.assertFalse('amends' in notice)
+        self.assertFalse('changes' in notice)
