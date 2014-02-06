@@ -216,4 +216,5 @@ class NoticeChanges(object):
         cognizant of the fact that a single label can have more than
         one change. """
         for l, c in changes.items():
-            self.changes[l].append(c)
+            if c not in self.changes[l]:
+                self.changes[l].append(c)
