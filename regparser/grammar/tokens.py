@@ -3,6 +3,7 @@
     [ Part, Subpart/Appendix/Interpretations, Section, p-level-1, p-level-2,
     p-level-3, p-level4, p-level5 ]
 """
+from copy import copy
 
 
 def _none_str(value):
@@ -13,7 +14,28 @@ def _none_str(value):
         return "'%s'" % value
 
 
-class Verb:
+class Token(object):
+    """Base class for all tokens. Provides methods for pattern matching and
+    copying this token"""
+    def match(self, *types, **fields):
+        """Pattern match. self must be one of the types provided (if they
+        were provided) and all of the fields must match (if fields were
+        provided)"""
+        return ((not types or any(isinstance(self, typ) for typ in types))
+                and (not fields or all(hasattr(self, f) for f in fields))
+                and (not fields or all(getattr(self, f) == v
+                                       for f, v in fields.iteritems())))
+
+    def copy(self, **fields):
+        """Helper method to create a new instance of this token with the
+        **fields set."""
+        new_version = copy(self)
+        for field, value in fields.iteritems():
+            setattr(new_version, field, value)
+        return new_version
+
+
+class Verb(Token):
     """Represents what action is taking place to the paragraphs"""
 
     PUT = 'PUT'
@@ -23,18 +45,20 @@ class Verb:
     DESIGNATE = 'DESIGNATE'
     RESERVE = 'RESERVE'
 
-    def __init__(self, verb, active):
+    def __init__(self, verb, active, and_prefix=False):
         self.verb = verb
         self.active = active
+        self.and_prefix = and_prefix
 
     def __repr__(self):
-        return "Verb( '%s', active=%s )" % (self.verb, self.active)
+        return "Verb( %s, active=%s, and_prefix=%s)" % (
+            repr(self.verb), repr(self.active), repr(self.and_prefix))
 
     def __eq__(self, other):
         return repr(self) == repr(other)
 
 
-class Context:
+class Context(Token):
     """Represents a bit of context for the paragraphs. This gets compressed
     with the paragraph tokens to define the full scope of a paragraph. To
     complicate matters, sometimes what looks like a Context is actually the
@@ -54,7 +78,7 @@ class Context:
         return repr(self) == repr(other)
 
 
-class Paragraph:
+class Paragraph(Token):
     """Represents an entity which is being modified by the amendment. Label
     is a way to locate this paragraph (though see the above note). We might
     be modifying a field of a paragraph (e.g. intro text only, or title
@@ -88,7 +112,7 @@ class Paragraph:
         return repr(self) == repr(other)
 
 
-class TokenList:
+class TokenList(Token):
     """Represents a sequence of other tokens, e.g. comma separated of
     created via "through" """
 
@@ -105,7 +129,7 @@ class TokenList:
         return iter(self.tokens)
 
 
-class AndToken(object):
+class AndToken(Token):
     """The word 'and' can help us determine if a Context token should be a
     Paragraph token. Note that 'and' might also trigger the creation of a
     TokenList, which takes precedent"""

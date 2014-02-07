@@ -260,7 +260,7 @@ class NoticeDiffTests(TestCase):
         self.assertEqual(headings[0].text, u"Subpart B—Requirements")
 
     def test_is_designate_token(self):
-        class Noun:
+        class Noun(tokens.Token):
             def __init__(self, noun):
                 self.noun = noun
 
@@ -594,6 +594,20 @@ class NoticeDiffTests(TestCase):
                          amd35b1_2.label)
         self.assertEqual(['1111', '35', 'b', '1', 'Interp', '3'],
                          amd35b1_3.label)
+
+    def test_parse_amdpar_interp_redesignated(self):
+        text = "Paragraph 1 under 51(b) is redesignated as paragraph 2 "
+        text += "under subheading 51(b)(1) and revised"
+        xml = etree.fromstring(u'<AMDPAR>%s</AMDPAR>' % text)
+        amends, _ = parse_amdpar(xml, ['1111', 'Interpretations'])
+        self.assertEqual(2, len(amends))
+        move, put = amends
+        self.assertEqual('MOVE', move.action)
+        self.assertEqual(['1111', '51', 'b', 'Interp', '1'], move.label)
+        self.assertEqual(['1111', '51', 'b', '1', 'Interp', '2'],
+                         move.destination)
+        self.assertEqual('PUT', put.action)
+        self.assertEqual(['1111', '51', 'b', '1', 'Interp', '2'], put.label)
 
 
 class AmendmentTests(TestCase):
