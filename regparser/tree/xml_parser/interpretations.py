@@ -23,18 +23,19 @@ i_levels = [
 ]
 
 
+_marker_regex = re.compile(
+    '^('                       # line start
+    + '([0-9]+)'               # digits
+    + '|([ivxlcdm]+)'          # roman
+    + '|([A-Z]+)'              # upper
+    + '|(<E[^>]*>[0-9]+)'      # emphasized digit
+    + r')\s*\..*', re.DOTALL)  # followed by a period and then anything
+
+
 def get_first_interp_marker(text):
-    roman_dec = Word("ivxlcdm")
-    upper_dec = Word(string.ascii_uppercase)
-    emph_dec = (Regex(r"<E[^>]*>") + Word(string.digits)).setParseAction(
-        lambda s, l, t: ''.join(t))
-
-    marker_parser = LineStart() + (
-        (Word(string.digits) | roman_dec | upper_dec | emph_dec)
-        + Suppress("."))
-
-    for citation, start, end in marker_parser.scanString(text):
-        return citation[0]
+    match = _marker_regex.match(text)
+    if match:
+        return text[:text.find('.')]        # up to dot
 
 
 def interpretation_level(marker, previous_level=None):
