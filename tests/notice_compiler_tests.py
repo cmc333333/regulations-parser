@@ -5,6 +5,18 @@ from regparser.notice import compiler
 from regparser.tree.struct import Node, find
 
 
+class SortedKeysDict(object):
+    """Wrapper for a dict, always returning keys in sorted order"""
+    def __init__(self, changes):
+        self.changes = changes
+
+    def keys(self):
+        return list(sorted(self.changes.keys()))
+
+    def __getitem__(self, key):
+        return self.changes[key]
+
+
 class CompilerTests(TestCase):
     def test_dict_to_node(self):
         dict_node = {
@@ -584,19 +596,32 @@ class CompilerTests(TestCase):
                                             'node_type': Node.REGTEXT}}],
             '205-2-b': [{'action': 'DELETE'}]}
 
-        class SortedKeysDict(object):
-            def keys(self):
-                return list(sorted(changes.keys()))
-
-            def __getitem__(self, key):
-                return changes[key]
-
-        new_tree = compiler.compile_regulation(prev_tree, SortedKeysDict())
+        new_tree = compiler.compile_regulation(prev_tree,
+                                               SortedKeysDict(changes))
         s1, s2, s4 = new_tree.children
         self.assertEqual(2, len(s2.children))
         s2a, s2b = s2.children
         self.assertEqual("aaa", s2a.text)
         self.assertEqual("n2a", s2b.text)
+
+    def test_compile_regulation_move_edit(self):
+        """Test that if we move an element, then edit it, we aren't
+        triggering a double-add of that element"""
+        prev_tree = self.tree_with_paragraphs()
+        changes = {
+            '205-0': [{'action': 'PUT',
+                       'node': {'text': 'aaaa', 'label': ['205', '0'],
+                                'node_type': Node.REGTEXT}}],
+            '205-2-b': [{'action': 'MOVE', 'destination': ['205', '0']}]}
+
+        new_tree = compiler.compile_regulation(prev_tree,
+                                               SortedKeysDict(changes))
+        self.assertEqual(4, len(new_tree.children))
+        s0, s1, s2, s4 = new_tree.children
+        self.assertEqual(s0.label, ['205', '0'])
+        self.assertEqual(s1.label, ['205', '1'])
+        self.assertEqual(s2.label, ['205', '2'])
+        self.assertEqual(s4.label, ['205', '4'])
 
     def test_is_reserved_node(self):
         n = Node('[Reserved]', label=['205', '4', 'a'])

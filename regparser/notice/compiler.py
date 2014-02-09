@@ -386,6 +386,8 @@ def _needs_delay(reg, change):
     if action == 'POST':
         existing = reg.find_node(change['node']['label'])
         return existing and not is_reserved_node(existing)
+    if action == 'PUT':
+        return not reg.contains(change['node']['label'])
     return False
 
 
