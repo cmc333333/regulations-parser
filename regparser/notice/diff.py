@@ -204,6 +204,7 @@ def parse_amdpar(par, initial_context):
     text = get_node_text(par, add_spaces=True)
     tokenized = [t[0] for t, _, _ in amdpar.token_patterns.scanString(text)]
 
+    tokenized = compress_context_in_tokenlists(tokenized)
     tokenized = resolve_confused_context(tokenized, initial_context)
     tokenized = paragraph_in_context_moved(tokenized, initial_context)
     tokenized = remove_false_deletes(tokenized, text)
@@ -259,7 +260,7 @@ def switch_passive(tokenized):
             lambda t: not isinstance(t, tokens.Verb), remaining))
         if len(to_add) < len(remaining):
             #   also take the verb
-            verb = remaining[len(to_add)]
+            verb = remaining[len(to_add)].copy()
             to_add.append(verb)
             #   switch verb to the beginning
             if not verb.active:
@@ -280,11 +281,16 @@ def resolve_confused_context(tokenized, initial_context):
     if initial_context[1:2] == ['Interpretations']:
         final_tokens = []
         for token in tokenized:
-            if isinstance(token, tokens.Context) and token.label[1] is None:
-                final_tokens.append(tokens.Context(
-                    [token.label[0], 'Interpretations', token.label[2],
-                     '(' + ')('.join(l for l in token.label[3:] if l) + ')'],
-                    token.certain))
+            if (token.match(tokens.Context, tokens.Paragraph)
+                    and len(token.label) > 1 and token.label[1] is None):
+                final_tokens.append(token.copy(
+                    label=[token.label[0], 'Interpretations', token.label[2],
+                           '(' + ')('.join(l for l in token.label[3:] if l)
+                               + ')']))
+            elif token.match(tokens.TokenList):
+                sub_tokens = resolve_confused_context(token.tokens,
+                                                      initial_context)
+                final_tokens.append(token.copy(tokens=sub_tokens))
             else:
                 final_tokens.append(token)
         return final_tokens
@@ -297,6 +303,18 @@ def and_token_resolution(tokenized):
     indicator is the presence of an "and" token afterwards. We'll likely
     want to expand this step in the future, but for now, we only catch a few
     cases"""
+    # compress "and" tokens 
+    tokenized = zip(tokenized, tokenized[1:] + [None])
+    tokenized = [l for l, r in tokenized
+                 if l != r or not l.match(tokens.AndToken)]
+    # verbs followed by "and"
+    tokenized = list(reversed(tokenized))
+    tokenized = zip(tokenized, tokenized[1:] + [None])
+    tokenized = list(reversed([l for l, r in tokenized
+                               if not l.match(tokens.AndToken) or not r
+                               or not r.match(tokens.Verb)]))
+
+    # check for the pattern in question
     final_tokens = []
     idx = 0
     while idx < len(tokenized) - 3:
@@ -414,6 +432,25 @@ def compress(lhs_label, rhs_label):
     return label
 
 
+def compress_context_in_tokenlists(tokenized):
+    """Use compress (above) on elements within a tokenlist."""
+    final = []
+    for token in tokenized:
+        if token.match(tokens.TokenList):
+            subtokens = []
+            label_so_far = []
+            for subtoken in token.tokens:
+                if hasattr(subtoken, 'label'):
+                    label_so_far = compress(label_so_far, subtoken.label)
+                    subtokens.append(subtoken.copy(label=label_so_far))
+                else:
+                    subtokens.append(subtoken)
+            final.append(token.copy(tokens=subtokens))
+        else:
+            final.append(token)
+    return final
+
+
 def compress_context(tokenized, initial_context):
     """Add context to each of the paragraphs (removing context)"""
     #copy
@@ -500,6 +537,7 @@ class Amendment(object):
             # Add paragraphs
             if len(components) > 3:
                 paragraphs = [p.strip('()') for p in components[3].split(')(')]
+                paragraphs = filter(bool, paragraphs)
                 new_style.extend(paragraphs)
             new_style.append(Node.INTERP_MARK)
             # Add any paragraphs of the comment

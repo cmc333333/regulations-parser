@@ -6,7 +6,7 @@ import string
 
 from pyparsing import Word, LineStart, Regex, Suppress
 
-from regparser.citations import Label
+from regparser.citations import Label, remove_citation_overlaps
 from regparser.tree.interpretation import merge_labels, text_to_labels
 from regparser.tree.struct import Node, treeify
 from regparser.tree.xml_parser import tree_utils
@@ -24,18 +24,28 @@ i_levels = [
 
 
 _marker_regex = re.compile(
-    '^('                       # line start
+    r'^\s*('                   # line start
     + '([0-9]+)'               # digits
     + '|([ivxlcdm]+)'          # roman
     + '|([A-Z]+)'              # upper
     + '|(<E[^>]*>[0-9]+)'      # emphasized digit
     + r')\s*\..*', re.DOTALL)  # followed by a period and then anything
+_marker_stars_regex = re.compile(
+    r'^\s*('                   # line start
+    + '([0-9]+)'               # digits
+    + '|([ivxlcdm]+)'          # roman
+    + '|([A-Z]+)'              # upper
+    + '|(<E[^>]*>[0-9]+)'      # emphasized digit
+    + r')\s+\* \* \*\s*$', re.DOTALL)  # followed by stars
 
 
 def get_first_interp_marker(text):
     match = _marker_regex.match(text)
     if match:
-        return text[:text.find('.')]        # up to dot
+        return text[:text.find('.')].strip()        # up to dot
+    match = _marker_stars_regex.match(text)
+    if match:
+        return text[:text.find('*')].strip()        # up to star
 
 
 def interpretation_level(marker, previous_level=None):
@@ -60,22 +70,47 @@ def interpretation_level(marker, previous_level=None):
                 return idx + 3
 
 
-_first_markers = [re.compile(ur'[\.|,|;|-|—]\s*(' + marker + ')\.')
+_first_markers = [re.compile(ur'[\.|,|;|-|—]\s*(' + marker 
+                             + ')\.(?!e\.)'  # Negative look ahead; for "i.e."
+                             + u'(?!”)')     # and a closing quote
                   for marker in ['i', 'A']]
 
 
 def interp_inner_child(child_node, stack):
     """ Build an inner child node (basically a node that's after
-    -Interp- in the tree) """
+    -Interp- in the tree). If the paragraph doesn't have a marker, attach it
+    to the previous paragraph"""
     node_text = tree_utils.get_node_text(child_node, add_spaces=True)
     text_with_tags = tree_utils.get_node_text_tags_preserved(child_node)
     first_marker = get_first_interp_marker(text_with_tags)
-    paragraph_count = 0
+    if not first_marker and stack.lineage():
+        logging.warning("Couldn't determine interp marker. Appending to "
+                        "previous paragraph: %s", node_text)
+        previous = stack.lineage()[0]
+        previous.text += "\n\n" + node_text
+        if hasattr(previous, 'tagged_text'):
+            previous.tagged_text += "\n\n" + text_with_tags
+        else:
+            previous.tagged_text = text_with_tags
+    else:
+        child_with_marker(child_node, stack)
+
+
+def child_with_marker(child_node, stack):
+    """Machinery to build a node for an interp's inner child. Assumes the
+    paragraph begins with a paragraph marker."""
+    node_text = tree_utils.get_node_text(child_node, add_spaces=True)
+    text_with_tags = tree_utils.get_node_text_tags_preserved(child_node)
+    first_marker = get_first_interp_marker(text_with_tags)
 
     collapsed_markers = []
     for marker in _first_markers:
-        collapsed_markers.extend(m for m in marker.finditer(node_text)
-                                 if m.start() > 0)
+        possible_markers = ((m, m.start(), m.end()) 
+                            for m in marker.finditer(node_text)
+                            if m.start() > 0)
+        collapsed_markers.extend(
+            m for m, _, _ in remove_citation_overlaps(node_text,
+                                                      possible_markers))
 
     #   -2 throughout to account for matching the character + period
     ends = [m.end() - 2 for m in collapsed_markers[1:]] + [len(node_text)]
@@ -92,7 +127,6 @@ def interp_inner_child(child_node, stack):
     else:
         node_level = interpretation_level(first_marker, last[0][0])
         if node_level is None:
-            paragraph_count += 1
             logging.warning("Couldn't determine node_level for this "
                             + "interpretation paragraph: " + n.text)
             node_level = last[0][0] + 1

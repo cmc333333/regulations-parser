@@ -81,6 +81,11 @@ def is_reserved_node(node):
     return (reserved_title or reserved_text)
 
 
+def is_placeholder_node(node):
+    """Differs from reserved in that it's a programming tool"""
+    return not (node.title or node.text and Node.INTERP_MARK in node.label)
+
+
 class RegulationTree(object):
     """ This encapsulates a regulation tree, and methods to change that tree.
     """
@@ -141,7 +146,10 @@ class RegulationTree(object):
     def delete(self, label_id):
         """ Delete the node with label_id from the tree. """
         node = find(self.tree, label_id)
-        self.delete_from_parent(node)
+        if node:
+            self.delete_from_parent(node)
+        else:
+            logging.warning("Attempting to delete %s failed", label_id)
 
     def reserve(self, label_id, node):
         """ Reserve either an existing node (by replacing it) or
@@ -190,7 +198,13 @@ class RegulationTree(object):
         """ In rare cases, we need to flush out the tree by adding
         an empty node. """
         node_label = node_label.split('-')
-        node = Node('', [], node_label, None, Node.REGTEXT)
+        if Node.INTERP_MARK in node_label:
+            node_type = Node.INTERP
+        elif len(node_label) > 1 and not node_label[1].isdigit():
+            node_type = Node.APPENDIX
+        else:
+            node_type = Node.REGTEXT
+        node = Node('', [], node_label, None, node_type)
         parent = self.get_parent(node)
         parent.children = self.add_child(parent.children, node)
         return parent
@@ -217,6 +231,14 @@ class RegulationTree(object):
                 logging.warning(
                     'Replacing reserved node: %s' % node.label_id())
                 return self.replace_node_and_subtree(node)
+            elif is_placeholder_node(existing):
+                logging.warning(
+                    'Replacing placeholder node: %s' % node.label_id())
+                existing.title = node.title
+                existing.text = node.text
+                return
+            elif existing.title == node.title and existing.text == node.text:
+                return
             else:
                 logging.warning(
                     'Adding a node that already exists: %s' % node.label_id())
@@ -396,6 +418,8 @@ def compile_regulation(previous_tree, notice_changes):
     next final notice, construct the next full regulation tree. """
     reg = RegulationTree(previous_tree)
     labels = sort_labels(notice_changes.keys())
+    reg_part = previous_tree.label[0]
+    labels = filter(lambda l: l.startswith(reg_part), labels)
 
     next_pass = [(label, change)
                  for label in labels

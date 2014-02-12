@@ -34,6 +34,13 @@ class Token(object):
             setattr(new_version, field, value)
         return new_version
 
+    def __eq__(self, other):
+        return isinstance(other, self.__class__) and repr(self) == repr(other)
+
+    def __ne__(self, other):
+        """Must always define inequality when defining equality in Python"""
+        return not self == other
+
 
 class Verb(Token):
     """Represents what action is taking place to the paragraphs"""
@@ -54,9 +61,6 @@ class Verb(Token):
         return "Verb( %s, active=%s, and_prefix=%s)" % (
             repr(self.verb), repr(self.active), repr(self.and_prefix))
 
-    def __eq__(self, other):
-        return repr(self) == repr(other)
-
 
 class Context(Token):
     """Represents a bit of context for the paragraphs. This gets compressed
@@ -73,9 +77,6 @@ class Context(Token):
     def __repr__(self):
         return "Context([ %s , certain=%s ])" % (
             ', '.join(map(_none_str, self.label)), self.certain)
-
-    def __eq__(self, other):
-        return repr(self) == repr(other)
 
 
 class Paragraph(Token):
@@ -108,9 +109,6 @@ class Paragraph(Token):
         else:
             return '-'.join(label)
 
-    def __eq__(self, other):
-        return repr(self) == repr(other)
-
 
 class TokenList(Token):
     """Represents a sequence of other tokens, e.g. comma separated of
@@ -122,9 +120,6 @@ class TokenList(Token):
     def __repr__(self):
         return "TokenList([ %s ])" % ', '.join(map(repr, self.tokens))
 
-    def __eq__(self, other):
-        return repr(self) == repr(other)
-
     def __iter__(self):
         return iter(self.tokens)
 
@@ -133,8 +128,6 @@ class AndToken(Token):
     """The word 'and' can help us determine if a Context token should be a
     Paragraph token. Note that 'and' might also trigger the creation of a
     TokenList, which takes precedent"""
-    def __eq__(self, other):
-        return isinstance(other, AndToken)
 
     def __repr__(self):
         return "AndToken()"

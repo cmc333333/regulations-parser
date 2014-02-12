@@ -337,3 +337,17 @@ class GrammarAmdParTests(TestCase):
         old, redes, new, revised = result
         self.assertEqual(revised, tokens.Verb(tokens.Verb.PUT, active=False,
                                               and_prefix=True))
+
+    def test_example_24(self):
+        text = "The heading 41(e)(5) Title title and paragraph 1 are added."
+
+        result = parse_text(text)
+        self.assertEqual(4, len(result))
+        heading, andToken, paragraph, verb = result
+        self.assertEqual(heading, tokens.Paragraph(
+            [None, 'Interpretations', '41', '(e)(5)'],
+            field=tokens.Paragraph.HEADING_FIELD))
+        self.assertEqual(andToken, tokens.AndToken())
+        self.assertEqual(paragraph, tokens.Paragraph(
+            [None, 'Interpretations', None, None, '1']))
+        self.assertEqual(verb, tokens.Verb(tokens.Verb.POST, active=False))
