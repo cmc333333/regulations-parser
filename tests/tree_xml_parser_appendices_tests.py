@@ -494,7 +494,7 @@ class AppendixProcessorTest(TestCase):
 
     def test_paragraph_double_depth(self):
         for text in ("(a) A paragraph", "(1) A paragraph", "(i) A paragraph",
-                "(A) A paragraph", "(a) A paragraph"):
+                     "(A) A paragraph", "(a) A paragraph"):
             self.ap.paragraph_with_marker(text, text)
         self.ap.end_group()
 
@@ -511,6 +511,12 @@ class AppendixProcessorTest(TestCase):
         self.assertEqual(['i'], level4[0].label)
         self.assertEqual(['A'], level5[0].label)
         self.assertEqual(['a'], level6[0].label)
+
+    def test_paragraph_with_marker_keyterm(self):
+        self.ap.paragraph_with_marker("1.Key term content",
+                                      '1.<E T="03">Key term</E>content')
+        self.assertEqual(1, len(self.ap.nodes))
+        self.assertEqual(['1'], self.ap.nodes[0].label)
 
     def test_process_part_cap(self):
         xml = u"""

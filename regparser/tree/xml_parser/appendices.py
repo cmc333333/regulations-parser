@@ -49,10 +49,6 @@ def is_appendix_header(node):
             or (node.tag == 'HD' and node.attrib['SOURCE'] == 'HED'))
 
 
-_first_markers = [re.compile(ur'[\)\.|,|;|-|—]\s*\(' + lvl[0] + '\)')
-                  for lvl in p_levels]
-
-
 class AppendixProcessor(object):
     """Processing the appendix requires a lot of state to be carried in
     between xml nodes. Use a class to wrap that state so we can
@@ -147,13 +143,13 @@ class AppendixProcessor(object):
         node_for_keyterms.label = [initial_marker(text)[0]]
         keyterm = KeyTerms.get_keyterm(node_for_keyterms)
         if keyterm:
-            mtext = text.replace(keyterm, '.'*len(keyterm))
+            mtext = text.replace(keyterm, ';'*len(keyterm))
         else:
             mtext = text
 
         for mtext in split_paragraph_text(mtext):
             if keyterm:     # still need the original text
-                mtext = mtext.replace('.'*len(keyterm), keyterm)
+                mtext = mtext.replace(';'*len(keyterm), keyterm)
             node = Node(mtext, node_type=Node.APPENDIX,
                         label=[initial_marker(mtext)[0]])
             self.nodes.append(node)
@@ -287,6 +283,10 @@ class AppendixProcessor(object):
 
         if self.m_stack.m_stack[0]:
             return self.m_stack.m_stack[0][0][1]
+
+
+_first_markers = [re.compile(ur'[\)\.|,|;|-|—]\s*\(' + lvl[0] + '\)')
+                  for lvl in p_levels]
 
 
 def split_paragraph_text(text):
