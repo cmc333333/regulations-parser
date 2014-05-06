@@ -258,6 +258,12 @@ class RegulationTree(object):
         else:
             parent = self.get_parent(node)
 
+        if parent is None:
+            # This is a corner case, where we're trying to add a child to a
+            # parent that should exist.
+            logging.warning('No existing parent for: %s' % node.label_id())
+            parent = self.create_empty_node(get_parent_label(node))
+
         prev_idx = [idx for idx, c in enumerate(parent.children)
                     if c.label == node.label]
         if prev_idx:

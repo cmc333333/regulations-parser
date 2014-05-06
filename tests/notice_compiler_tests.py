@@ -213,6 +213,33 @@ class CompilerTests(TestCase):
         self.assertEqual(['n2', 'n1n1', 'n3'],
                          map(lambda n: n.text, reg_tree.tree.children))
 
+    def test_replace_node_and_substree_create_parents(self):
+        i1 = Node(label=['205', '1', 'Interp'], node_type=Node.INTERP)
+        interp = Node(label=['205', 'Interp'], node_type=Node.INTERP,
+                      children=[i1])
+        root = Node(label=['205'], children=[interp])
+        reg_tree = compiler.RegulationTree(root)
+
+        i1a2 = Node(label=['205', '1', 'a', '2', 'Interp'],
+                    node_type=Node.INTERP)
+        reg_tree.replace_node_and_subtree(i1a2)
+
+        node = reg_tree.tree
+        self.assertEqual(['205'], node.label)
+        self.assertEqual(1, len(node.children))
+        node = node.children[0]
+        self.assertEqual(['205', 'Interp'], node.label)
+        self.assertEqual(1, len(node.children))
+        node = node.children[0]
+        self.assertEqual(['205', '1', 'Interp'], node.label)
+        self.assertEqual(1, len(node.children))
+        node = node.children[0]
+        self.assertEqual(['205', '1', 'a', 'Interp'], node.label)
+        self.assertEqual(1, len(node.children))
+        node = node.children[0]
+        self.assertEqual(['205', '1', 'a', '2', 'Interp'], node.label)
+        self.assertEqual(0, len(node.children))
+
     def test_reserve_add_new(self):
         root = self.tree_with_paragraphs()
         reg_tree = compiler.RegulationTree(root)
