@@ -182,6 +182,25 @@ class AppendicesTest(TestCase):
         self.assertEqual(['1111', 'A', 'p2'], a5.label)
         self.assertEqual(0, len(a5.children))
 
+    def test_process_spaces(self):
+        xml = u"""
+        <APPENDIX>
+            <EAR>Pt. 1111, App. A</EAR>
+            <HD SOURCE="HED">Appendix A to Part 1111—Awesome</HD>
+            <P>1. For<PRTPAGE P="650" />example</P>
+            <P>2. And <E T="03">et seq.</E></P>
+            <P>3. And<E T="03">et seq.</E></P>
+            <HD SOURCE="HD1">Part I - Something Something</HD>
+        </APPENDIX>"""
+        appendix = appendices.process_appendix(etree.fromstring(xml), 1111)
+        self.assertEqual(4, len(appendix.children))
+        a1, a2, a3, partI = appendix.children
+
+        self.assertEqual(['1111', 'A', '1'], a1.label)
+        self.assertEqual(['1111', 'A', '2'], a2.label)
+        self.assertEqual(['1111', 'A', '3'], a3.label)
+        self.assertEqual(['1111', 'A', 'I'], partI.label)
+
     def test_header_ordering(self):
         xml = u"""
         <APPENDIX>

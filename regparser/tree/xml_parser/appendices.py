@@ -201,7 +201,11 @@ class AppendixProcessor(object):
                     current_idx = typ.index(node.label[-1])
                     if current_idx == prev_idx + 1:
                         return depth
-        return self.depth + 1
+        # Paragraphs under the main heading should not be level 2
+        if len(self.m_stack.lineage()) == 1:
+            return self.depth
+        else:
+            return self.depth + 1
 
     def end_group(self):
         """We've hit a header (or the end of the appendix), so take the
