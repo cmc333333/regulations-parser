@@ -218,7 +218,8 @@ class AppendixProcessor(object):
             if markers:
                 results = derive_depths(markers)
                 if not results:
-                    print markers
+                    logging.warning("Could not derive depth from %s",
+                                    markers)
                 # currently no heuristics applied
                 depths = list(reversed(
                     [a.depth for a in results[0].assignment]))

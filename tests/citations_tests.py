@@ -71,6 +71,14 @@ class CitationsTest(TestCase):
             self.assertEqual(citation.label.to_list(), label)
             self.assertEqual(link, to_full_text(citation, text))
 
+        text = "For loans under paragraph A.1. of Part II, some more"
+        citations = internal_citations(text, Label(part='102', appendix='H'))
+        self.assertEqual(1, len(citations))
+        self.assertEqual(citations[0].label.to_list(),
+                         ["102", "H", "II", "A", "1"])
+        self.assertEqual("paragraph A.1. of Part II",
+                         to_full_text(citations[0], text))
+
     def test_single_reference_false_positives(self):
         text = "See the commentary. (a) child paragraph"
         citations = internal_citations(

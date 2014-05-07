@@ -1,7 +1,9 @@
 #vim: set encoding=utf-8
 """Some common combinations"""
+import string
+
 from pyparsing import Empty, FollowedBy, LineEnd, Literal, OneOrMore, Optional
-from pyparsing import Suppress, SkipTo, ZeroOrMore
+from pyparsing import Suppress, SkipTo, Word, ZeroOrMore
 
 from regparser.grammar import atomic
 from regparser.grammar.utils import keep_pos, Marker
@@ -78,6 +80,15 @@ appendix_with_part = (
     + Suppress(",") + Marker('part')
     + atomic.upper_roman_a
     + Optional(any_a) + Optional(any_a) + Optional(any_a))
+
+appendix_par_of_part = (
+    atomic.paragraph_marker.copy().setParseAction(keep_pos).setResultsName(
+        "marker")
+    + (Word(string.ascii_uppercase) | Word(string.digits))
+    + Optional(any_a) + Optional(any_a)
+    + Suppress(".")
+    + Marker("of") + Marker("part")
+    + atomic.upper_roman_a)
 
 marker_appendix = (
     atomic.appendix_marker.copy().setParseAction(keep_pos).setResultsName(
