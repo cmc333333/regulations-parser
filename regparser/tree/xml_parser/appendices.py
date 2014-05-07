@@ -217,6 +217,8 @@ class AppendixProcessor(object):
                        AppendixProcessor.filler_regex.match(n.label[-1])]
             if markers:
                 results = derive_depths(markers)
+                if not results:
+                    print markers
                 # currently no heuristics applied
                 depths = list(reversed(
                     [a.depth for a in results[0].assignment]))
@@ -289,8 +291,10 @@ class AppendixProcessor(object):
             return self.m_stack.m_stack[0][0][1]
 
 
-_first_markers = [re.compile(ur'[\)\.|,|;|-|—]\s*\(' + lvl[0] + '\)')
-                  for lvl in p_levels]
+_first_markers = (
+    [re.compile(ur'[\)\.|,|;|-|—]\s*(\(' + lvl[0] + '\))') for lvl in p_levels]
+    + [re.compile(ur'[\)\.|,|;|-|—]\s*(' + lvl[0] + '\.)')
+       for lvl in p_levels])
 
 
 def split_paragraph_text(text):
@@ -298,8 +302,8 @@ def split_paragraph_text(text):
     collapsed markers"""
     marker_positions = []
     for marker in _first_markers:
-        #   text.index('(') to skip over the periods, spaces, etc.
-        marker_positions.extend(text.index('(', m.start())
+        # Ignore any initial periods, spaces, etc.
+        marker_positions.extend(m.end() - len(m.group(1))
                                 for m in marker.finditer(text))
     #   Remove any citations
     citations = internal_citations(text, require_marker=True)

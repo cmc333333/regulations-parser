@@ -505,6 +505,10 @@ class AppendixProcessorTest(TestCase):
         self.assertEqual(['(a) Paragraph. ', '(1) Next paragraph'], res)
 
         res = appendices.split_paragraph_text(
+            "a. Paragraph. 1. Next paragraph")
+        self.assertEqual(['a. Paragraph. ', '1. Next paragraph'], res)
+
+        res = appendices.split_paragraph_text(
             "(a) (Keyterm) (1) Next paragraph")
         self.assertEqual(['(a) (Keyterm) ', '(1) Next paragraph'], res)
 
