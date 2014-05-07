@@ -11,6 +11,7 @@ class BuilderTests(TestCase):
     @patch.object(Builder, '__init__')
     def test_revision_generator_notices(self, init, merge_changes):
         init.return_value = None
+        merge_changes.side_effect = lambda s, x: x
         b = Builder()   # Don't need parameters as init's been mocked out
         aaaa = {'document_number': 'aaaa', 'effective_on': '2012-12-12',
                 'publication_date': '2011-11-11', 'changes': {'1111-1': []}}

@@ -206,7 +206,7 @@ def build_from_section(reg_part, section_xml):
                     m_stack.push_last((1 + par.depth, node))
                 else:
                     m_stack.add(1 + par.depth, node)
-    else:
+    elif nodes:
         logging.warning("Could not determine depth:\n%s",
                         [n.label[0] for n in nodes])
     section_no = section_xml.xpath('SECTNO')[0].text
