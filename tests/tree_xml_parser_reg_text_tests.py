@@ -229,6 +229,28 @@ class RegTextTest(TestCase):
         nb = node.children[0]
         self.assertEqual(nb.text.strip(), "(b) General. Content Content.")
 
+    def test_build_from_section_aa(self):
+        xml = u"""
+            <SECTION>
+                <SECTNO>§ 8675.16</SECTNO>
+                <SUBJECT>Subby Sub Sub.</SUBJECT>
+                <STARS/>
+                <P>(x) xxxxx</P>
+                <P>(y) yyyyy</P>
+                <P>(z) zzzzz</P>
+                <P>(aa) aaaaaaaaaa</P>
+                <P>(bb) bbbbbbbbbb</P>
+            </SECTION>
+        """
+        node = build_from_section('8675', etree.fromstring(xml))[0]
+        self.assertEqual(5, len(node.children))
+        nx, ny, nz, naa, nbb = node.children
+        self.assertEqual(nx.label, ['8675', '16', 'x'])
+        self.assertEqual(ny.label, ['8675', '16', 'y'])
+        self.assertEqual(nz.label, ['8675', '16', 'z'])
+        self.assertEqual(naa.label, ['8675', '16', 'aa'])
+        self.assertEqual(nbb.label, ['8675', '16', 'bb'])
+
     def test_get_title(self):
         xml = u"""
             <PART>
@@ -376,11 +398,3 @@ class RegTextTest(TestCase):
                 <P>(xi) More</P>
             </ROOT>""")
         self.assertEqual('xi', next_marker(xml.getchildren()[0], []))
-
-    def test_determine_level(self):
-        self.assertEqual(1, determine_level('f', 1))
-        self.assertEqual(4, determine_level('A', 3))
-        self.assertEqual(1, determine_level('i', 1, '1'))
-        self.assertEqual(3, determine_level('i', 2, 'A'))
-        self.assertEqual(3, determine_level('i', 2, 'ii'))
-        self.assertEqual(3, determine_level('i', 2, 'iv'))
