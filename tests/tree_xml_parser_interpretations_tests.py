@@ -257,6 +257,30 @@ class InterpretationsTest(TestCase):
         self.assertEqual(1, len(s13.children))
         self.assertEqual('13(a) Some Stuff!', s13.children[0].title)
 
+    def test_build_supplement_prtpage(self):
+        """Integration test"""
+        xml = """<APPENDIX>
+            <HD SOURCE="HED">
+                Supplement I to Part 737-Official Interpretations</HD>
+            <HD SOURCE="HD2">Section 737.13</HD>
+            <P><E>13(a) Some Stuff!</E><PRTPAGE /></P>
+            <P>1. 11111</P>
+            <P>2. 22222</P>
+        </APPENDIX>"""
+        node = interpretations.build_supplement_tree('737',
+                                                     etree.fromstring(xml))
+        self.assertEqual(['737', 'Interp'], node.label)
+        self.assertEqual(1, len(node.children))
+        node = node.children[0]
+        self.assertEqual(['737', '13', 'Interp'], node.label)
+        self.assertEqual(1, len(node.children))
+        node = node.children[0]
+        self.assertEqual(['737', '13', 'a', 'Interp'], node.label)
+        self.assertEqual(2, len(node.children))
+        n1, n2 = node.children
+        self.assertEqual(['737', '13', 'a', 'Interp', '1'], n1.label)
+        self.assertEqual(['737', '13', 'a', 'Interp', '2'], n2.label)
+
     def test_process_inner_child(self):
         xml = """
         <ROOT>

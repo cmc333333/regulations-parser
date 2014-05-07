@@ -23,3 +23,10 @@ class NoticeUtilTests(TestCase):
         self.assertEqual(etree.tostring(xml),
                          '<ROOT>@<em>smith</em>: what <em>do</em> you think'
                          + " about $<em>15</em>? That's <em>9</em>%!</ROOT>")
+
+    def test_spaces_then_remove_prtpage(self):
+        for txt in ("Some<PRTPAGE />text", "Some <PRTPAGE />text",
+                    "Some<PRTPAGE /> text"):
+            xml = etree.fromstring("<ROOT>%s</ROOT>" % txt)
+            xml = spaces_then_remove(xml, "PRTPAGE")
+            self.assertEqual("Some text", xml.text)
