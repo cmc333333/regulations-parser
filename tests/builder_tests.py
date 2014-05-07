@@ -13,13 +13,17 @@ class BuilderTests(TestCase):
         init.return_value = None
         b = Builder()   # Don't need parameters as init's been mocked out
         aaaa = {'document_number': 'aaaa', 'effective_on': '2012-12-12',
-                'publication_date': '2011-11-11', 'changes': []}
+                'publication_date': '2011-11-11', 'changes': {'1111-1': []}}
         bbbb = {'document_number': 'bbbb', 'effective_on': '2012-12-12',
-                'publication_date': '2011-11-12', 'changes': []}
+                'publication_date': '2011-11-12', 'changes': {'1111-2': []}}
         cccc = {'document_number': 'cccc', 'effective_on': '2013-01-01',
-                'publication_date': '2012-01-01', 'changes': []}
-        b.notices = [aaaa, bbbb, cccc]
-        b.eff_notices = {'2012-12-12': [aaaa, bbbb], '2013-01-01': [cccc]}
+                'publication_date': '2012-01-01', 'changes': {'1111-3': []}}
+        # has changes for another reg but not 1111
+        dddd = {'document_number': 'dddd', 'effective_on': '2013-01-01',
+                'publication_date': '2012-01-01', 'changes': {'1212-4': []}}
+        b.notices = [aaaa, bbbb, cccc, dddd]
+        b.eff_notices = {'2012-12-12': [aaaa, bbbb],
+                         '2013-01-01': [cccc, dddd]}
         b.doc_number = 'aaaa'
         tree = Node(label=['1111'])
         version_list = []
