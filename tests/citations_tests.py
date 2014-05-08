@@ -61,6 +61,8 @@ class CitationsTest(TestCase):
              ['102', '3', 'b', '1', 'Interp', '1', 'v']),
             ("See appendix G, part V.4.D.", 'appendix G, part V.4.D',
              ['102', 'G', 'V', '4', 'D']),
+            ("Referencing comment 1111.3-3.i. for some reason",
+             "comment 1111.3-3.i", ["1111", "3", "Interp", "3", "i"]),
             ("See comment 3-1 for things", 'comment 3-1',
              ['102', '3', 'Interp', '1'])]:
 

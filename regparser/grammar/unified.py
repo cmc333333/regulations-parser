@@ -114,9 +114,13 @@ marker_subpart_title = (
 marker_comment = (
     atomic.comment_marker.copy().setParseAction(keep_pos).setResultsName(
         "marker")
-    + (section_comment | section_paragraph | mps_paragraph)
+    + (section_comment
+       | section_paragraph
+       | mps_paragraph
+       | (part_section + Optional(depth1_p) + depth1_c))
     + Optional(depth1_c)
 )
+
 
 _inner_non_comment = (
     any_depth_p

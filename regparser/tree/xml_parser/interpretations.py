@@ -173,6 +173,9 @@ def process_inner_children(inner_stack, xml_node):
                     inner_stack.push_last((3 + par.depth, node))
                 else:
                     inner_stack.add(3 + par.depth, node)
+    elif nodes:
+        logging.warning("Could not derive depth (interp):\n %s",
+                        [n.label[0] for n in nodes])
 
 
 def missing_levels(last_label, label):
