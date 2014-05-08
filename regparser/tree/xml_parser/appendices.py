@@ -292,20 +292,25 @@ class AppendixProcessor(object):
             return self.m_stack.m_stack[0][0][1]
 
 
-_first_markers = (
-    [re.compile(ur'[\)\.|,|;|-|—]\s*(\(' + lvl[0] + '\))') for lvl in p_levels]
-    + [re.compile(ur'[\)\.|,|;|-|—]\s*(' + lvl[0] + '\.)')
-       for lvl in p_levels])
+_first_paren_markers = [re.compile(ur'[\)\.|,|;|-|—]\s*(\(' + lvl[0] + '\))')
+                        for lvl in p_levels]
+_first_period_markers = [re.compile(ur'[\)\.|,|;|-|—]\s*(' + lvl[0] + '\.)')
+                         for lvl in p_levels]
 
 
 def split_paragraph_text(text):
     """Split text into a root node and its children (if the text contains
     collapsed markers"""
     marker_positions = []
-    for marker in _first_markers:
+    if text.lstrip()[:1] == '(':    # Using paren markers:
+        marker_set = _first_paren_markers
+    else:
+        marker_set = _first_period_markers
+    for marker in marker_set:
         # Ignore any initial periods, spaces, etc.
         marker_positions.extend(m.end() - len(m.group(1))
                                 for m in marker.finditer(text))
+
     #   Remove any citations
     citations = internal_citations(text, require_marker=True)
     marker_positions = [pos for pos in marker_positions

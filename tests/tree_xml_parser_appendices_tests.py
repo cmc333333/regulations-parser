@@ -515,6 +515,10 @@ class AppendixProcessorTest(TestCase):
         res = appendices.split_paragraph_text("(a) Mentions one (1) comment")
         self.assertEqual(['(a) Mentions one (1) comment'], res)
 
+        text = "(b) This mentions the S.A.F.E. act"
+        res = appendices.split_paragraph_text(text)
+        self.assertEqual([text], res)
+
     def test_paragraph_double_depth(self):
         for text in ("(a) A paragraph", "(1) A paragraph", "(i) A paragraph",
                      "(A) A paragraph", "(a) A paragraph"):
