@@ -286,6 +286,13 @@ class RegTextTest(TestCase):
         subpart_title = get_subpart_title(etree.fromstring(xml))
         self.assertEqual(subpart_title, u'Subpart A—First subpart')
 
+        xml = u"""
+            <SUBPART>
+                <RESERVED>Subpart B [Reserved]</RESERVED>
+            </SUBPART>"""
+        subpart_title = get_subpart_title(etree.fromstring(xml))
+        self.assertEqual(subpart_title, u'Subpart B [Reserved]')
+
     def test_build_subpart(self):
         xml = u"""
             <SUBPART>
