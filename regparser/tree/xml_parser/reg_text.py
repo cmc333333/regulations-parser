@@ -8,7 +8,7 @@ from regparser import content
 from regparser.tree.depth import heuristics, rules, markers as mtypes
 from regparser.tree.depth.derive import derive_depths
 from regparser.tree.struct import Node
-from regparser.tree.paragraph import p_level_of, p_levels
+from regparser.tree.paragraph import p_level_of
 from regparser.tree.xml_parser.appendices import build_non_reg_text
 from regparser.tree import reg_text
 from regparser.tree.xml_parser import tree_utils
@@ -54,7 +54,10 @@ def preprocess_xml(xml):
 
 
 def build_tree(reg_xml):
-    doc = etree.fromstring(reg_xml)
+    if isinstance(reg_xml, str) or isinstance(reg_xml, unicode):
+        doc = etree.fromstring(reg_xml)
+    else:
+        doc = reg_xml
     preprocess_xml(doc)
 
     reg_part = get_reg_part(doc)

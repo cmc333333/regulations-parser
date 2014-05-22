@@ -167,7 +167,8 @@ def create_xmlless_changes(amended_labels, notice_changes):
                 print 'NOT HANDLED: %s' % amendment['action']
 
 
-def create_xml_changes(amended_labels, section, notice_changes):
+def create_xml_changes(amended_labels, section, notice_changes,
+                       subpart_label=None):
     """For PUT/POST, match the amendments to the section nodes that got
     parsed, and actually create the notice changes. """
 
@@ -180,6 +181,9 @@ def create_xml_changes(amended_labels, section, notice_changes):
     for label, amendments in amend_map.iteritems():
         for amendment in amendments:
             if amendment['action'] in ('POST', 'PUT'):
+                if (subpart_label and amendment['action'] == 'POST'
+                        and len(label.split('-')) == 2):
+                    amendment['extras'] = {'subpart': subpart_label}
                 if 'field' in amendment:
                     nodes = changes.create_field_amendment(label, amendment)
                 else:
@@ -308,9 +312,17 @@ def process_amendments(notice, notice_xml):
         for cfr_part, rel_labels in labels_by_part.iteritems():
             section_xml = find_section(par)
             if section_xml is not None:
+                subparts = aXp.parent.xpath('.//SUBPART/HD')
+                if subparts:
+                    subpart_label = [cfr_part, 'Subpart',
+                                     subparts[0].text[8:9]]
+                else:
+                    subpart_label = None
+
                 for section in reg_text.build_from_section(cfr_part,
                                                            section_xml):
-                    create_xml_changes(rel_labels, section, notice_changes)
+                    create_xml_changes(rel_labels, section, notice_changes,
+                                       subpart_label)
 
             for appendix in parse_appendix_changes(rel_labels, cfr_part,
                                                    aXp.parent):
@@ -329,6 +341,13 @@ def process_amendments(notice, notice_xml):
     if amends:
         notice['amendments'] = amends
         notice['changes'] = notice_changes.changes
+    elif notice['document_number'] in settings.REISSUANCES:
+        notice['changes'] = {
+            default_cfr_part: [{
+                'action': 'PUT',
+                'node': reg_text.build_tree(notice_xml)
+            }]
+        }
 
 
 def process_sxs(notice, notice_xml):
