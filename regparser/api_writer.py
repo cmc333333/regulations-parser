@@ -1,5 +1,6 @@
 import os
 import os.path
+import re
 import shutil
 
 from git import Repo
@@ -52,6 +53,8 @@ class APIWriteContent:
 
 class GitWriteContent:
     """This writer places the content in a git repo on the file system"""
+    SENT_RE = re.compile(r"""(?<=[\.;\!\?])[\s]+(?=[A-Z])""")
+
     def __init__(self, path):
         self.path = path
 
@@ -81,7 +84,8 @@ class GitWriteContent:
         node_text += ', '.join('"' + f + '"' for f in child_folders)
         node_text += ']\n'
 
-        node_text += '---\n' + node.text
+        node_text += '---\n' + '\n'.join(GitWriteContent.SENT_RE.split(
+            node.text))
         with open(root_path + os.sep + 'index.md', 'w') as f:
             f.write(node_text.encode('utf8'))
 
