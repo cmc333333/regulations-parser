@@ -1,6 +1,5 @@
 #vim: set encoding=utf-8
 import re
-import logging
 
 from lxml import etree
 
