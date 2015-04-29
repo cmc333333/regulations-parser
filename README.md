@@ -21,7 +21,7 @@ Here's an example, using CFPB's regulation H.
 1. `cd regulations-parser`
 1. `pip install -r requirements.txt`
 1. `wget http://www.gpo.gov/fdsys/pkg/CFR-2012-title12-vol8/xml/CFR-2012-title12-vol8-part1004.xml`
-1. `python build_from.py CFR-2012-title12-vol8-part1004.xml 12 2011-18676 15 1693`
+1. `python build_from.py CFR-2012-title12-vol8-part1004.xml 12 15 1693`
 
 At the end, you will have new directories for `regulation`, `layer`,
 `diff`, and `notice` which would mirror the JSON files sent to the API.
