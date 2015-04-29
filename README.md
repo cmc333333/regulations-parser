@@ -20,10 +20,8 @@ Here's an example, using CFPB's regulation H.
 1. `git clone https://github.com/cfpb/regulations-parser.git`
 1. `cd regulations-parser`
 1. `pip install -r requirements.txt`
-1. `wget
-   http://www.gpo.gov/fdsys/pkg/CFR-2012-title12-vol8/xml/CFR-2012-title12-vol8-part1004.xml`
-1. `python build_from.py CFR-2012-title12-vol8-part1004.xml 12 2011-18676 15
-   1693`
+1. `wget http://www.gpo.gov/fdsys/pkg/CFR-2012-title12-vol8/xml/CFR-2012-title12-vol8-part1004.xml`
+1. `python build_from.py CFR-2012-title12-vol8-part1004.xml 12 2011-18676 15 1693`
 
 At the end, you will have new directories for `regulation`, `layer`,
 `diff`, and `notice` which would mirror the JSON files sent to the API.
@@ -38,7 +36,7 @@ tweaked to pass the parser.
 1. `git clone https://github.com/cfpb/fr-notices.git`
 1. `pip install -r requirements.txt`
 1. `echo "LOCAL_XML_PATHS = ['fr-notices']" >> local_settings.py`
-1. `python build_from.py fr-notices/articles/xml/201/131/725.xml 12 2011-31725 15 1693`
+1. `python build_from.py fr-notices/articles/xml/201/131/725.xml 12 15 1693`
 
 If you review the history of the `fr-notices` repo, you'll see some of the types of changes that need to be made.
 
@@ -149,27 +147,19 @@ regulation E).
 The syntax is 
 
 ```bash
-$ python build_from.py regulation.ext title notice_doc_# act_title act_section
+$ python build_from.py regulation.ext title act_title act_section
 ```
 
-For example, to match the reissuance above:
+For example, to match regulation H in the quick start above:
 ```bash
-$ python build_from.py 725.xml 12 2013-1725 15 1693
+$ python build_from.py CFR-2012-title12-vol8-part1004.xml 12 15 1693
 ```
 
 Here ```12``` is the CFR title number (in our case, for "Banks and
-Banking"), ```2013-1725``` is the last notice used to create this version
-(i.e. the last "final rule" which is currently in effect), ```15``` is the
+Banking"), ```15``` is the
 title of "the Act" and ```1693``` is the relevant section. Wherever the
 phrase "the Act" is used in the regulation, the external link parser will
-treat it as "15 U.S.C. 1693".  The final rule number is used to pull in
-section-by-section analyses and deduce which notices were used to create
-this version of the regulation. It also helps determine which notices to use
-when building additional versions of the regulation. To find the document
-number, use the [Federal Register](https://www.federalregister.gov/),
-finding the last, effective final rule for your version of the regulation
-and copying the document number from the meta data (currently in a table on
-the right side).
+treat it as "15 U.S.C. 1693".
 
 Running the command will generate four folders, ```regulation```,
 ```notice```, ``layer`` and possibly ``diff`` in the ```OUTPUT_DIR```
@@ -519,8 +509,7 @@ the regulation H example above
 
  1. `cd /path/to/regulations-parser`
  1. `echo "API_BASE = 'http://127.0.0.0:8888/'" >> local_settings.py`
- 1. `python build_from.py CFR-2012-title12-vol8-part1004.xml 12 2011-18676 15
-   1693`
+ 1. `python build_from.py CFR-2012-title12-vol8-part1004.xml 12 15 1693`
 
 Next up, we set up [regulations-site](https://github.com/cfpb/regulations-site) to provide a webapp.
 

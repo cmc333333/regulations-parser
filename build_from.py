@@ -4,6 +4,7 @@ import codecs
 import logging
 import argparse
 
+
 try:
     import requests_cache
     requests_cache.install_cache('fr_cache')
@@ -21,22 +22,27 @@ logger.addHandler(logging.StreamHandler())
 
 # @profile
 def parse_regulation(args):
-    """ Run the parser on the specified command-line arguments. Broken out into
-        separate function to assist in profiling.
+    """ Run the parser on the specified command-line arguments. Broken out
+    into separate function to assist in profiling.
     """
     with codecs.open(args.filename, 'r', 'utf-8') as f:
         reg = f.read()
 
-    doc_number = args.notice
-    act_title_and_section = [args.act_title, args.act_section]
-
     #   First, the regulation tree
     reg_tree = Builder.reg_tree(reg)
 
+    title_part = reg_tree.label_id()
+
+    doc_number = Builder.determine_doc_number(reg, args.title, title_part)
+    if not doc_number:
+        raise ValueError("Could not determine document number")
+
+    act_title_and_section = [args.act_title, args.act_section]
+
+    #   Run Builder
     builder = Builder(cfr_title=args.title,
                       cfr_part=reg_tree.label_id(),
                       doc_number=doc_number)
-
     builder.write_notices()
 
     #   Always do at least the first reg
@@ -47,12 +53,15 @@ def parse_regulation(args):
     layer_cache.replace_using(reg_tree)
 
     if args.generate_diffs:
-        generate_diffs(doc_number, reg_tree, act_title_and_section, builder, layer_cache)
+        generate_diffs(doc_number, reg_tree, act_title_and_section, builder,
+                       layer_cache)
 
-def generate_diffs(doc_number, reg_tree, act_title_and_section, builder, layer_cache):
-    """ Generate all the diffs for the given regulation. Broken out into separate function
-        to assist with profiling so it's easier to determine which parts of the parser take
-        the most time
+
+def generate_diffs(doc_number, reg_tree, act_title_and_section, builder,
+                   layer_cache):
+    """ Generate all the diffs for the given regulation. Broken out into
+    separate function to assist with profiling so it's easier to determine
+    which parts of the parser take the most time
     """
 
     all_versions = {doc_number: reg_tree}
@@ -84,11 +93,11 @@ if __name__ == "__main__":
     parser.add_argument('filename',
                         help='XML file containing the regulation')
     parser.add_argument('title', type=int, help='Title number')
-    parser.add_argument('notice', type=str, help='Notice document number')
-    parser.add_argument('act_title', type=int, help='Act title', action='store')
+    parser.add_argument('act_title', type=int, help='Act title',
+                        action='store')
     parser.add_argument('act_section', type=int, help='Act section')
-    parser.add_argument('--generate-diffs', type=bool, help='Generate diffs?', required=False, default=True)
+    parser.add_argument('--generate-diffs', type=bool, help='Generate diffs?',
+                        required=False, default=True)
 
     args = parser.parse_args()
-    
     parse_regulation(args)
