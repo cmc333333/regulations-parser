@@ -86,8 +86,8 @@ class ParagraphProcessor(object):
         nodes = self.parse_nodes(xml)
         intro_node, nodes = self.separate_intro(nodes)
         if intro_node:
-            root.text += intro_node.text
-            root.tagged_text += intro_node.tagged_text
+            root.text += " " + intro_node.text
+            root.tagged_text += " " + intro_node.tagged_text
         if nodes:
             depths = derive_depths([node.label[0] for node in nodes])
             depths = self.select_depth(depths)
