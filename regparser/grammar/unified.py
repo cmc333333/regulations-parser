@@ -111,11 +111,12 @@ marker_subpart = (
     atomic.subpart_marker.copy().setParseAction(keep_pos).setResultsName(
         "marker")
     + atomic.subpart)
+
 marker_subpart_title = (
     atomic.subpart_marker.copy().setParseAction(keep_pos).setResultsName(
         "marker")
     + atomic.subpart
-    + ((Suppress(Literal(u"—"))
+    + ((Optional(Suppress(Literal(u"—")))
         + SkipTo(LineEnd()).setResultsName("subpart_title"))
        | (Literal("[Reserved]").setResultsName("subpart_title")))
 )
