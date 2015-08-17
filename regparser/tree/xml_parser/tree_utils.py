@@ -1,4 +1,4 @@
-#vim: set encoding=utf-8
+# vim: set encoding=utf-8
 from copy import deepcopy
 import HTMLParser
 from itertools import chain
@@ -35,6 +35,13 @@ class NodeStack(PriorityStack):
         parts_prefix = self.peek_last()[1].label
         children = [prepend_parts(parts_prefix, c[1]) for c in children]
         self.peek_last()[1].children = children
+
+    def collapse(self):
+        """After all of the nodes have been inserted at their proper levels,
+        collapse them into a single root node"""
+        while self.size() > 1:
+            self.unwind()
+        return self.peek_last()[1]
 
 
 def split_text(text, tokens):
@@ -152,7 +159,7 @@ def get_node_text_tags_preserved(node):
 
     for c in node:
         if c.tag == 'E':
-            #xlmns non-sense makes me do this.
+            # xlmns non-sense makes me do this.
             e_tag = '<E T="03">%s</E>' % c.text
             node_text += e_tag
         if c.tail is not None:

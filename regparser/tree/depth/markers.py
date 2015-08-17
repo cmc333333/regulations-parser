@@ -19,4 +19,7 @@ STARS_TAG = 'STARS'
 INLINE_STARS = '* * *'
 stars = (STARS_TAG, INLINE_STARS)
 
-types = [lower, upper, ints, roman, em_ints, em_roman, stars]
+NO_MARKER = 'NO_MARKER'
+no_marker = (NO_MARKER,)
+
+types = [lower, upper, ints, roman, em_ints, em_roman, stars, no_marker]

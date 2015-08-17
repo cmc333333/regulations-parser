@@ -35,6 +35,8 @@ def same_type(typ, idx, depth, *all_prev):
     elif typ == markers.stars:
         return depth < prev_depth or (prev_idx == 1
                                       and depth == prev_depth + 1)
+    elif typ == markers.no_marker and prev_typ == markers.no_marker:
+        return depth == prev_depth
     # If this marker matches *any* previous marker, we may be continuing
     # it's sequence
     else:
@@ -64,6 +66,8 @@ def diff_type(typ, idx, depth, *all_prev):
     # If following stars and on the same level, we're good
     elif all_prev[-1][0] == markers.stars and depth == all_prev[-1][2]:
         return True     # Stars
+    elif typ == markers.no_marker:
+        return depth <= all_prev[-1][2] + 1
     # If this marker matches *any* previous marker, we may be continuing
     # it's sequence
     else:
@@ -118,7 +122,7 @@ def stars_occupy_space(*all_vars):
             if typ == markers.stars:
                 if idx == 0:    # STARS_TAG, not INLINE_STARS
                     last_idx += 1
-            elif last_idx >= idx:
+            elif last_idx >= idx and typ != markers.no_marker:
                 return False
             else:
                 last_idx = idx

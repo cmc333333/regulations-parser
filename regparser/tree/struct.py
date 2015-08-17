@@ -12,6 +12,7 @@ class Node(object):
 
     INTERP_MARK = 'Interp'
 
+    # @todo: remove source_xml and add tagged_text
     def __init__(self, text='', children=[], label=[], title=None,
                  node_type=REGTEXT, source_xml=None):
 
