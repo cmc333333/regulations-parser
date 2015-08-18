@@ -28,9 +28,7 @@ class Solution(object):
 
     def copy_with_penalty(self, penalty):
         """Immutable copy while modifying weight"""
-        sol = Solution([], self.weight * (1 - penalty))
-        sol.assignment = self.assignment
-        return sol
+        return Solution(self.assignment, self.weight * (1 - penalty))
 
     def __iter__(self):
         return iter(self.assignment)
@@ -131,5 +129,5 @@ def derive_depths(marker_list, additional_constraints=[]):
                 assignment['type{}'.format(assignment_idx)]]
             with_repeat['depth{}'.format(idx)] = assignment[
                 'depth{}'.format(assignment_idx)]
-        solutions.append(Solution(with_repeat, indexes))
+        solutions.append(Solution(with_repeat))
     return solutions
