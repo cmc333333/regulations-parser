@@ -28,15 +28,9 @@ def same_type(typ, idx, depth, *all_prev):
     """Constraints on sequential markers with the same marker type"""
     # Group (type, idx, depth) per marker
     all_prev = [tuple(all_prev[i:i+3]) for i in range(0, len(all_prev), 3)]
+    prev_typ, prev_idx, prev_depth = all_prev[-1]
 
-    if all_prev:
-        prev_typ, prev_idx, prev_depth = all_prev[-1]
-
-    # Rule isn't relevant because it's the first marker ...
-    if not all_prev:
-        return True
-    # ... or the previous marker's type doesn't match (see diff_type)
-    elif typ != prev_typ:
+    if typ != prev_typ:
         return True
     # Stars can't be on the same level in sequence. Can only start a new
     # level if the preceding wasn't inline
@@ -58,24 +52,22 @@ def same_type(typ, idx, depth, *all_prev):
 def diff_type(typ, idx, depth, *all_prev):
     """Constraints on sequential markers with differing types"""
     all_prev = [tuple(all_prev[i:i+3]) for i in range(0, len(all_prev), 3)]
+    prev_typ, prev_idx, prev_depth = all_prev[-1]
 
-    # Rule isn't relevant because it's the first marker ...
-    if not all_prev:
-        return True
     # ... or the previous marker's type matches (see same_type)
-    elif typ == all_prev[-1][0]:
+    if typ == all_prev[-1][0]:
         return True
     # Starting a new type
-    elif idx == 0 and depth == all_prev[-1][2] + 1:
+    elif idx == 0 and depth == prev_depth + 1:
         return True
     # Stars can't skip levels forward (e.g. _ *, _ _ _ *)
     elif typ == markers.stars_idx:
-        return all_prev[-1][2] - depth >= -1
+        return prev_depth - depth >= -1
     # If following stars and on the same level, we're good
-    elif all_prev[-1][0] == markers.stars_idx and depth == all_prev[-1][2]:
+    elif prev_typ == markers.stars_idx and depth == prev_depth:
         return True     # Stars
     elif typ == markers.no_marker_idx:
-        return depth <= all_prev[-1][2] + 1
+        return depth <= prev_depth + 1
     # If this marker matches *any* previous marker, we may be continuing
     # it's sequence
     else:
