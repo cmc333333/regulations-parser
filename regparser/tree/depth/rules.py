@@ -18,6 +18,12 @@ def type_match(marker):
         and markers.types[typ][idx] == marker)
 
 
+def pairs(prev_typ, prev_idx, prev_depth, typ, depth, idx):
+    if prev_typ == typ and typ == markers.no_marker_idx:
+        return prev_depth == depth
+    return True
+
+
 def same_type(typ, idx, depth, *all_prev):
     """Constraints on sequential markers with the same marker type"""
     # Group (type, idx, depth) per marker

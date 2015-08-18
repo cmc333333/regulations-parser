@@ -67,14 +67,17 @@ def derive_depths(marker_list, additional_constraints=[]):
     problem.addConstraint(rules.must_be(0), ("depth0",))
 
     for idx, marker in enumerate(marker_list):
-        idx_str = str(idx)
         problem.addConstraint(rules.type_match(marker),
-                              ("type" + idx_str, "idx" + idx_str))
+                              ("type{}".format(idx), "idx{}".format(idx)))
 
-        prior_params = ['type' + idx_str, 'idx' + idx_str, 'depth' + idx_str]
-        for i in range(idx):
-            prior_params += ['type' + str(i), 'idx' + str(i), 'depth' + str(i)]
+        if idx > 0:
+            problem.addConstraint(
+                rules.pairs,
+                all_vars[3*(idx-1):3*(idx+1)])
 
+    for idx in range(1, len(marker_list)):
+        prior_params = all_vars[3*idx:3*(idx+1)]
+        prior_params += all_vars[:3*idx]
         problem.addConstraint(rules.same_type, prior_params)
         problem.addConstraint(rules.diff_type, prior_params)
 
