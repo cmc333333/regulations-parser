@@ -13,7 +13,9 @@ def must_be(value):
 def type_match(marker):
     """The type of the associated variable must match its marker. Lambda
     explanation as in the above rule."""
-    return lambda typ, idx, m=marker: idx < len(typ) and typ[idx] == m
+    return lambda typ, idx: (
+        idx < len(markers.types[typ])
+        and markers.types[typ][idx] == marker)
 
 
 def same_type(typ, idx, depth, *all_prev):
@@ -32,10 +34,10 @@ def same_type(typ, idx, depth, *all_prev):
         return True
     # Stars can't be on the same level in sequence. Can only start a new
     # level if the preceding wasn't inline
-    elif typ == markers.stars:
+    elif typ == markers.stars_idx:
         return depth < prev_depth or (prev_idx == 1
                                       and depth == prev_depth + 1)
-    elif typ == markers.no_marker and prev_typ == markers.no_marker:
+    elif typ == markers.no_marker_idx or prev_typ == markers.no_marker_idx:
         return depth == prev_depth
     # If this marker matches *any* previous marker, we may be continuing
     # it's sequence
@@ -61,12 +63,12 @@ def diff_type(typ, idx, depth, *all_prev):
     elif idx == 0 and depth == all_prev[-1][2] + 1:
         return True
     # Stars can't skip levels forward (e.g. _ *, _ _ _ *)
-    elif typ == markers.stars:
+    elif typ == markers.stars_idx:
         return all_prev[-1][2] - depth >= -1
     # If following stars and on the same level, we're good
-    elif all_prev[-1][0] == markers.stars and depth == all_prev[-1][2]:
+    elif all_prev[-1][0] == markers.stars_idx and depth == all_prev[-1][2]:
         return True     # Stars
-    elif typ == markers.no_marker:
+    elif typ == markers.no_marker_idx:
         return depth <= all_prev[-1][2] + 1
     # If this marker matches *any* previous marker, we may be continuing
     # it's sequence
@@ -90,12 +92,12 @@ def same_depth_same_type(*all_vars):
             return True     # Base Case
 
         types = set(el[0] for el in level)
-        types = list(sorted(types, key=lambda t: t == markers.stars))
+        types = list(sorted(types, key=lambda t: t == markers.stars_idx))
         if len(types) > 2:
             return False
-        if len(types) == 2 and markers.stars not in types:
+        if len(types) == 2 and markers.stars_idx not in types:
             return False
-        if last_type in types and last_type != markers.stars:
+        if last_type in types and last_type != markers.stars_idx:
             return False
         for children in grouped_children:           # Recurse
             if not per_level(children, types[0]):
@@ -119,10 +121,10 @@ def stars_occupy_space(*all_vars):
 
         last_idx = -1
         for typ, idx, _ in level:
-            if typ == markers.stars:
+            if typ == markers.stars_idx:
                 if idx == 0:    # STARS_TAG, not INLINE_STARS
                     last_idx += 1
-            elif last_idx >= idx and typ != markers.no_marker:
+            elif last_idx >= idx and typ != markers.no_marker_idx:
                 return False
             else:
                 last_idx = idx
@@ -144,10 +146,11 @@ def depth_type_order(order):
 
     def inner(constrain, all_variables):
         for i in range(0, len(all_variables) / 3):
-            constrain(lambda t, d: (d < len(order)
-                                    and (t in (markers.stars, order[d])
-                                         or t in order[d])),
-                      ('type' + str(i), 'depth' + str(i)))
+            constrain(lambda d: d < len(order), ["depth" + str(i)])
+            constrain(lambda t, d: (t == markers.stars_idx
+                                    or markers.types[t] == order[d]
+                                    or markers.types[t] in order[d]),
+                      ("type" + str(i), "depth" + str(i)))
 
     return inner
 
@@ -157,7 +160,7 @@ def unique_type_per_depth(*all_vars):
     depth_by_type = {}
     for i in range(0, len(all_vars), 3):
         typ, _, depth = all_vars[i:i+3]
-        if typ not in (markers.stars, markers.no_marker):
+        if typ not in (markers.stars_idx, markers.no_marker_idx):
             if typ not in depth_by_type:
                 depth_by_type[typ] = depth
             elif depth_by_type[typ] != depth:

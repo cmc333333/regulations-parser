@@ -6,10 +6,10 @@ import string
 from regparser.utils import roman_nums
 
 
-lower = tuple(string.ascii_lowercase) + \
-        tuple(a+a for a in string.ascii_lowercase)
-upper = tuple(string.ascii_uppercase) + \
-        tuple(a+a for a in string.ascii_uppercase)
+lower = (tuple(string.ascii_lowercase) +
+         tuple(a+a for a in string.ascii_lowercase))
+upper = (tuple(string.ascii_uppercase) +
+         tuple(a+a for a in string.ascii_uppercase))
 ints = tuple(str(i) for i in range(1, 51))
 roman = tuple(itertools.islice(roman_nums(), 0, 50))
 em_ints = tuple('<E T="03">' + i + '</E>' for i in ints)
@@ -24,4 +24,6 @@ stars = (STARS_TAG, INLINE_STARS)
 NO_MARKER = 'NO_MARKER'
 no_marker = (NO_MARKER,)
 
-types = [lower, upper, ints, roman, em_ints, em_roman, stars, no_marker]
+types = [stars, no_marker, lower, upper, ints, roman, em_ints, em_roman]
+stars_idx = 0
+no_marker_idx = 1

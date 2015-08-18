@@ -22,7 +22,7 @@ class Solution(object):
         else:   # assignment is a dict (as returned by constraint solver)
             for i in range(len(assignment) / 3):    # for (type, idx, depth)
                 self.assignment.append(
-                    ParAssignment(assignment['type' + str(i)],
+                    ParAssignment(markers.types[assignment['type' + str(i)]],
                                   assignment['idx' + str(i)],
                                   assignment['depth' + str(i)]))
 
@@ -52,7 +52,7 @@ def derive_depths(marker_list, additional_constraints=[]):
 
     # Marker type per marker
     problem.addVariables(["type" + str(i) for i in range(len(marker_list))],
-                         markers.types)
+                         range(len(markers.types)))
     # Index within the marker list
     problem.addVariables(["idx" + str(i) for i in range(len(marker_list))],
                          range(51))
