@@ -152,6 +152,19 @@ def depth_type_order(order):
     return inner
 
 
+def unique_type_per_depth(*all_vars):
+    """The same marker type cannot reappear at multiple depths."""
+    depth_by_type = {}
+    for i in range(0, len(all_vars), 3):
+        typ, _, depth = all_vars[i:i+3]
+        if typ not in (markers.stars, markers.no_marker):
+            if typ not in depth_by_type:
+                depth_by_type[typ] = depth
+            elif depth_by_type[typ] != depth:
+                return False
+    return True
+
+
 def _ancestors(all_prev):
     """Given an assignment of values, construct a list of the relevant
     parents, e.g. 1, i, a, ii, A gives us 1, ii, A"""

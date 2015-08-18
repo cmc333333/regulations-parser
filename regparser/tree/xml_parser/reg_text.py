@@ -4,7 +4,7 @@ import re
 from lxml import etree
 
 from regparser import content
-from regparser.tree.depth import markers as mtypes
+from regparser.tree.depth import markers as mtypes, rules
 from regparser.tree.struct import Node
 from regparser.tree.paragraph import p_level_of
 from regparser.tree.xml_parser import paragraph_processor
@@ -136,15 +136,16 @@ def get_markers_and_text(node, markers_list):
     node_text = tree_utils.get_node_text(node, add_spaces=True)
     text_with_tags = tree_utils.get_node_text_tags_preserved(node)
 
-    if len(markers_list) > 1:
+    if markers_list:
         actual_markers = ['(%s)' % m for m in markers_list]
         plain_markers = [m.replace('<E T="03">', '').replace('</E>', '')
                          for m in actual_markers]
         node_texts = tree_utils.split_text(node_text, plain_markers)
         tagged_texts = tree_utils.split_text(text_with_tags, actual_markers)
         node_text_list = zip(node_texts, tagged_texts)
-    elif markers_list:
-        node_text_list = [(node_text, text_with_tags)]
+        if len(node_texts) > len(markers_list):
+            markers_list = [mtypes.NO_MARKER] + markers_list
+
     return zip(markers_list, node_text_list)
 
 
@@ -245,3 +246,6 @@ class RegtextParagraphProcessor(paragraph_processor.ParagraphProcessor):
     MATCHERS = [paragraph_processor.StarsMatcher(),
                 MarkerMatcher(),
                 NoMarkerMatcher()]
+
+    def additional_constraints(self):
+        return [lambda c, a: c(rules.unique_type_per_depth, a)]

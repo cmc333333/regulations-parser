@@ -52,6 +52,8 @@ def split_text(text, tokens):
     starts = [text.find(t) for t in tokens]
     slices = zip(starts, starts[1:])
     texts = [text[i[0]:i[1]] for i in slices] + [text[starts[-1]:]]
+    if starts[0] != 0:
+        texts = [text[:starts[0]]] + texts
     return texts
 
 

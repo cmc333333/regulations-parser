@@ -121,12 +121,31 @@ class DeriveTests(TestCase):
     def test_star_star(self):
         results = derive_depths(['A', STARS_TAG, STARS_TAG, 'D'])
         self.assertEqual(1, len(results))
-        self.assertTrue([0, 1, 0, 0], [r.depth for r in results[0]])
+        self.assertEqual([0, 1, 0, 0], [r.depth for r in results[0]])
 
         results = derive_depths(['A', INLINE_STARS, STARS_TAG, 'D'])
         self.assertEqual(2, len(results))
-        self.assertTrue([0, 1, 2, 2], [r.depth for r in results[0]])
-        self.assertTrue([0, 1, 0, 0], [r.depth for r in results[0]])
+        results = [[r.depth for r in result] for result in results]
+        self.assertTrue([0, 1, 2, 2] in results)
+        self.assertTrue([0, 1, 0, 0] in results)
+
+    def test_i_after_a(self):
+        results = derive_depths([
+            'a',
+            '1', '2',
+            'i', 'ii', 'iii', 'iv', 'v', 'vi', 'vii', 'viii',
+            'b'])
+        self.assertEqual(1, len(results))
+        self.assertEqual([0, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 0],
+                         [r.depth for r in results[0]])
+
+    def test_AA(self):
+        results = derive_depths([
+            'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M',
+            'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z',
+            'AA', 'BB', 'CC'])
+        self.assertEqual(1, len(results))
+        self.assertEqual([0]*29, [r.depth for r in results[0]])
 
     def test_depth_type_order(self):
         extra = rules.depth_type_order([markers.ints, markers.lower])

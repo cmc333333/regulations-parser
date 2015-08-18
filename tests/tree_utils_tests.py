@@ -1,4 +1,4 @@
-#vim: set encoding=utf-8
+# vim: set encoding=utf-8
 import unittest
 
 from lxml import etree
@@ -14,6 +14,15 @@ class TreeUtilsTest(unittest.TestCase):
 
         result = tree_utils.split_text(text, tokens)
         expected = ['(A) Apples ', '(B) Bananas (Z) Zebras']
+        self.assertEqual(expected, result)
+
+    def test_split_text_with_prefix(self):
+        text = "Some content here (A) Apples (B) Bananas (Z) Zebras"
+        tokens = ['(A)', '(B)']
+
+        result = tree_utils.split_text(text, tokens)
+        expected = ['Some content here ', '(A) Apples ',
+                    '(B) Bananas (Z) Zebras']
         self.assertEqual(expected, result)
 
     def test_consecutive_markers(self):

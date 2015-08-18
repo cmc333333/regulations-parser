@@ -1,3 +1,5 @@
+import logging
+
 from regparser.tree.depth import heuristics, markers as mtypes
 from regparser.tree.depth.derive import derive_depths
 from regparser.tree.struct import Node
@@ -89,11 +91,20 @@ class ParagraphProcessor(object):
             root.text += " " + intro_node.text
             root.tagged_text += " " + intro_node.tagged_text
         if nodes:
-            depths = derive_depths([node.label[0] for node in nodes])
+            for n in nodes:
+                print n.text
+            markers = [node.label[0] for node in nodes]
+            depths = derive_depths(markers, self.additional_constraints())
+            if not depths:
+                logging.error(
+                    "Could not determine paragraph depths:\n%s", markers)
             depths = self.select_depth(depths)
             return self.build_hierarchy(root, nodes, depths)
         else:
             return root
+
+    def additional_constraints(self):
+        return []
 
 
 class StarsMatcher(object):
