@@ -14,22 +14,21 @@ class ParAssignment(object):
 class Solution(object):
     """A collection of assignments + a weight for how likely this solution is
     (after applying heuristics)"""
-    def __init__(self, assignment, indexes, weight=1.0):
-        self.indexes = indexes
+    def __init__(self, assignment, weight=1.0):
         self.weight = weight
         self.assignment = []
         if isinstance(assignment, list):
             self.assignment = assignment
         else:   # assignment is a dict (as returned by constraint solver)
-            for i in range(len(assignment) / 2):    # for (type, depth)
+            for i in range(len(assignment) / 3):    # for (type, idx, depth)
                 self.assignment.append(
                     ParAssignment(markers.types[assignment['type' + str(i)]],
-                                  indexes[i][assignment['type' + str(i)]],
+                                  assignment['idx{}'.format(i)],
                                   assignment['depth' + str(i)]))
 
     def copy_with_penalty(self, penalty):
         """Immutable copy while modifying weight"""
-        sol = Solution([], self.indexes, self.weight * (1 - penalty))
+        sol = Solution([], self.weight * (1 - penalty))
         sol.assignment = self.assignment
         return sol
 
@@ -49,6 +48,16 @@ def derive_depths(marker_list, additional_constraints=[]):
     list of all variables"""
     if not marker_list:
         return []
+    orig_marker_list = marker_list
+    marker_list = []
+    saw_no_marker = False
+    for m in orig_marker_list:
+        if m != markers.NO_MARKER:
+            saw_no_marker = False
+            marker_list.append(m)
+        elif not saw_no_marker:
+            saw_no_marker = True
+            marker_list.append(m)
     problem = Problem()
 
     # Marker type per marker
@@ -104,4 +113,23 @@ def derive_depths(marker_list, additional_constraints=[]):
     for constraint in additional_constraints:
         constraint(problem.addConstraint, all_vars)
 
-    return [Solution(solution, indexes) for solution in problem.getSolutions()]
+    solutions = []
+    for assignment in problem.getSolutionIter():
+        with_repeat = {}
+        saw_no_marker = False
+        assignment_idx = -1
+        for idx, marker in enumerate(orig_marker_list):
+            if marker != markers.NO_MARKER:
+                saw_no_marker = False
+                assignment_idx += 1
+            elif not saw_no_marker:
+                saw_no_marker = True
+                assignment_idx += 1
+            with_repeat['type{}'.format(idx)] = assignment[
+                'type{}'.format(assignment_idx)]
+            with_repeat['idx{}'.format(idx)] = indexes[assignment_idx][
+                assignment['type{}'.format(assignment_idx)]]
+            with_repeat['depth{}'.format(idx)] = assignment[
+                'depth{}'.format(assignment_idx)]
+        solutions.append(Solution(with_repeat, indexes))
+    return solutions
