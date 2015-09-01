@@ -183,7 +183,7 @@ class NoticeBuildTest(XMLBuilderMixin, TestCase):
 
         changes = notice['changes']['105-1-b'][0]
         self.assertEqual(changes['action'], 'PUT')
-        self.assertTrue(changes['node']['text'].startswith(
+        self.assertTrue(changes['node'].text.startswith(
             u'(b) This part carries out.'))
 
     def test_process_amendments_multiple_in_same_parent(self):
@@ -205,11 +205,11 @@ class NoticeBuildTest(XMLBuilderMixin, TestCase):
 
         changes = notice['changes']['105-1-b'][0]
         self.assertEqual(changes['action'], 'PUT')
-        self.assertEqual(changes['node']['text'].strip(),
+        self.assertEqual(changes['node'].text.strip(),
                          u'(b) This part carries out.')
         changes = notice['changes']['105-1-c'][0]
         self.assertEqual(changes['action'], 'PUT')
-        self.assertTrue(changes['node']['text'].strip(),
+        self.assertTrue(changes['node'].text.strip(),
                         u'(c) More stuff')
 
     def test_process_amendments_restart_new_section(self):
