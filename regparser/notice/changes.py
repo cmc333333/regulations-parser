@@ -1,16 +1,17 @@
 """ This module contains functions to help parse the changes in a notice.
 Changes are the exact details of how the pargraphs, sections etc. in a
 regulation have changed.  """
-
 import logging
 import copy
 from collections import defaultdict
 
+from lxml import etree
+
+from regparser.grammar.tokens import Verb
+from regparser.layer.paragraph_markers import marker_of
 from regparser.notice.amdpars import (
     DesignateAmendment, find_section, find_subpart, new_subpart_added,
     parse_amdpar)
-from regparser.grammar.tokens import Verb
-from regparser.layer.paragraph_markers import marker_of
 from regparser.notice.build_appendix import parse_appendix_changes
 from regparser.notice.build_interp import parse_interp_changes
 from regparser.tree import struct
@@ -165,9 +166,19 @@ def match_labels_and_changes(amendments, section_node):
 
 
 def format_node(node, amendment):
-    """ Format a node into a dict, and add in amendment information. """
+    """ Format a node and add in amendment information. """
+    # Copy the node, remove it's children, and dump its XML to string
+    node_no_kids = copy.deepcopy(node)
+    node_no_kids.children = []
+
+    try:
+        node_no_kids.source_xml = etree.tostring(node_no_kids.source_xml)
+    except TypeError:
+        # source_xml wasn't serializable
+        pass
+
     node_as_dict = {
-        'node': node,
+        'node': node_no_kids,
         'action': amendment['action'],
     }
 
