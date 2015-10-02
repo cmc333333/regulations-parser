@@ -1,11 +1,8 @@
-#!/usr/bin/env python
-
-
-import argparse
-import logging
-import hashlib
 import codecs
+import hashlib
+import logging
 
+import click
 try:
     import requests_cache
     requests_cache.install_cache('fr_cache')
@@ -26,16 +23,17 @@ logger.addHandler(logging.StreamHandler())
 
 
 # @profile
-def parse_regulation(args):
+def parse_regulation(filename, title, act_title, act_section, checkpoint_dir,
+                     doc_number):
     """ Run the parser on the specified command-line arguments. Broken out
         into separate function to assist in profiling.
     """
 
-    act_title_and_section = [args.act_title, args.act_section]
+    act_title_and_section = [act_title, act_section]
     #   First, the regulation tree
 
-    reg_tree, builder = tree_and_builder(args.filename, args.title,
-                                         args.checkpoint_dir, args.doc_number)
+    reg_tree, builder = tree_and_builder(filename, title, checkpoint_dir,
+                                         doc_number)
 
     builder.write_notices()
 
@@ -47,7 +45,7 @@ def parse_regulation(args):
     builder.gen_and_write_layers(reg_tree, act_title_and_section, layer_cache)
     layer_cache.replace_using(reg_tree)
 
-    if args.generate_diffs:
+    if generate_diffs:
         generate_diffs(reg_tree, act_title_and_section, builder, layer_cache)
 
 
@@ -133,38 +131,42 @@ def build_by_notice(filename, title, act_title, act_section,
     if args.generate_diffs:
         generate_diffs(reg_tree, act_title_and_section, builder, layer_cache)
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Regulation parser')
-    parser.add_argument('filename',
-                        help='XML file containing the regulation')
-    parser.add_argument('title', type=int, help='Title number')
-    parser.add_argument('act_title', type=int, help='Act title',
-                        action='store')
-    parser.add_argument('act_section', type=int, help='Act section')
-    diffs = parser.add_mutually_exclusive_group(required=False)
-    diffs.add_argument('--generate-diffs', dest='generate_diffs',
-                       action='store_true', help='Generate diffs')
-    diffs.add_argument('--no-generate-diffs', dest='generate_diffs',
-                       action='store_false', help="Don't generate diffs")
-    diffs.set_defaults(generate_diffs=True)
-    parser.add_argument('--checkpoint', dest='checkpoint_dir', required=False,
-                        help='Directory to save checkpoint data')
-    parser.add_argument(
-        '--version-identifier', dest='doc_number', required=False,
-        help=('Do not try to derive the version information. (Only use if '
-              'the regulation has no electronic final rules on '
-              'federalregister.gov, i.e. has not changed since before ~2000)'))
 
-    parser.add_argument('--last-notice', type=str,
-                        help='the last notice to be used')
-    parser.add_argument('--operation', action='store')
-    parser.add_argument('--notices-to-apply', nargs='*', action='store')
+@click.command()
+@click.argument('filename',
+                type=click.Path(exists=True, dir_okay=False, readable=True))
+@click.argument('title', type=int)
+@click.option('--act_title', type=int, default=0,
+              help=('Title of the act of congress providing authority for '
+                    'this regulation'))
+@click.option('--act_section', type=int, default=0,
+              help=('Section of the act of congress providing authority for '
+                    'this regulation'))
+@click.option('--generate-diffs/--no-generate-diffs', default=True)
+@click.option('--checkpoint', help='Directory to save checkpoint data',
+              type=click.Path(file_okay=False, readable=True, writable=True))
+@click.option('--version-identifier',
+              help=('Do not try to derive the version information. (Only use '
+                    'if the regulation has no electronic final rules on '
+                    'federalregister.gov, i.e. has not changed since before '
+                    '~2000)'))
+@click.option('--last-notice', help='the last notice to be used')
+@click.option('--operation')
+@click.option('--notices-to-apply', nargs=-1)
+# @profile
+def build_from(filename, title, act_title, act_section, generate_diffs,
+               checkpoint, version_identifier, last_notice, operation,
+               notices_to_apply):
+    """Build all data from provided xml. Reads the provided file and builds
+    all versions of the regulation, its layers, etc. that follow.
 
-    args = parser.parse_args()
-
-    if args.operation == 'build_by_notice':
-        build_by_notice(args.filename, args.title, args.act_title,
-                        args.act_section, args.notices_to_apply,
-                        args.last_notice, args.checkpoint)
+    \b
+    FILENAME: XML file containing the regulation
+    TITLE: CFR title
+    """
+    if operation == 'build_by_notice':
+        build_by_notice(filename, title, act_title, act_section,
+                        notices_to_apply, last_notice, checkpoint)
     else:
-        parse_regulation(args)
+        parse_regulation(filename, title, act_title, act_section, checkpoint,
+                         version_identifier)
