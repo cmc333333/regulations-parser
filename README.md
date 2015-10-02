@@ -20,10 +20,8 @@ Here's an example, using CFPB's regulation H.
 1. `git clone https://github.com/cfpb/regulations-parser.git`
 1. `cd regulations-parser`
 1. `pip install -r requirements.txt`
-1. `wget
-   http://www.gpo.gov/fdsys/pkg/CFR-2012-title12-vol8/xml/CFR-2012-title12-vol8-part1004.xml`
-1. `python build_from.py CFR-2012-title12-vol8-part1004.xml 12 2011-18676 15
-   1693`
+1. `wget http://www.gpo.gov/fdsys/pkg/CFR-2012-title12-vol8/xml/CFR-2012-title12-vol8-part1004.xml`
+1. `eregs build_from CFR-2012-title12-vol8-part1004.xml 12`
 
 At the end, you will have new directories for `regulation`, `layer`,
 `diff`, and `notice` which would mirror the JSON files sent to the API.
@@ -38,7 +36,7 @@ tweaked to pass the parser.
 1. `git clone https://github.com/cfpb/fr-notices.git`
 1. `pip install -r requirements.txt`
 1. `echo "LOCAL_XML_PATHS = ['fr-notices/']" >> local_settings.py`
-1. `python build_from.py fr-notices/articles/xml/201/131/725.xml 12 2011-31725 15 1693`
+1. `eregs build_from fr-notices/articles/xml/201/131/725.xml 12 2011-31725 15 1693`
 
 If you review the history of the `fr-notices` repo, you'll see some of the types of changes that need to be made.
 
@@ -152,18 +150,15 @@ regulation E).
 The syntax is
 
 ```bash
-$ python build_from.py regulation.xml title act_title act_section
+$ eregs build_from regulation.xml title
 ```
 
 For example, to match the reissuance above:
 ```bash
-$ python build_from.py 725.xml 12 15 1693
+$ eregs build_from 725.xml 12 15 1693
 ```
 
-Here ```12``` is the CFR title number (in our case, for "Banks and Banking"),
-```15``` is the title of "the Act" and ```1693``` is the relevant section.
-Wherever the phrase "the Act" is used in the regulation, the external link
-parser will treat it as "15 U.S.C. 1693".
+Here ```12``` is the CFR title number (in our case, for "Banks and Banking").
 
 Running the command will generate four folders, ```regulation```,
 ```notice```, ``layer`` and possibly ``diff`` in the ```OUTPUT_DIR```
@@ -242,30 +237,30 @@ configuration.
 ### Notice Order
 
 When debugging, it can be helpful to know how notices will be grouped and
-sequenced when compiling the regulation. The `notice_order.py` utility tells
+sequenced when compiling the regulation. The `notice_order` utility tells
 you exactly that information, once it is given a CFR title and part.
 
 ```
-$ python notice_order.py 12 1026
+$ eregs notice_order 12 1026
 ```
 
 By default, this only includes notices which explicitly change the text of the
 regulation. To include all final notices, add this flag:
 
 ```
-$ python notice_order.py 12 1005 --include-notices-without-changes
+$ eregs notice_order 12 1005 --include-notices-without-changes
 ```
 
 ### Watch Node
 
 Tracing how a specific node changes over the life of a regulation can help
-track down why the parser is failing (or exploding). The `watch_node.py`
+track down why the parser is failing (or exploding). The `watch_node`
 utility does exactly that, stepping through the initial tree and all
 subsequent notices. Whenever a node is changed (created, modified, deleted,
 etc.) this utility will log some output.
 
 ```
-$ python watch_node.py 1005-16-c path/to/regulation.xml 12
+$ eregs watch_node 1005-16-c path/to/regulation.xml 12
 ```
 
 The first parameter is the label of the node you want to watch, the second is
@@ -470,13 +465,13 @@ requires several hours.
 There are a few methods to speed up this process. Installing `requests-cache`
 will cache API-read calls (such as those made when calling the Federal
 Register). The cache lives in an sqlite database (`fr_cache.sqlite`), which
-can be safely removed without error. The `build_from.py` pipeline can also
+can be safely removed without error. The `build_from` pipeline can also
 include checkpoints -- that is, saving the state of the process up until some
 point in time. To activate this feature, pass in a directory name to the
 `--checkpoint` flag, e.g.
 
 ```bash
-$ python build_from.py CFR-2012-title12-vol8-part1004.xml 12 15 1693 --checkpoint my-checkpoint-dir
+$ eregs build_from CFR-2012-title12-vol8-part1004.xml 12 --checkpoint my-checkpoint-dir
 ```
 
 ### Parsing Error Example
@@ -577,8 +572,7 @@ Let's set up [regulations-core](https://github.com/cfpb/regulations-core) first.
 
  1. `git clone https://github.com/cfpb/regulations-core.git`
  1. `cd regulations-core`
- 1. `pip install zc.buildout`
- 1. `buildout   # pulls in python dependencies`
+ 1. `pip install -r requirements.txt  # pulls in python dependencies`
  1. `./bin/django syncdb --migrate`
  1. `./bin/django runserver 127.0.0.1:8888 &   # Starts the API`
 
@@ -587,14 +581,13 @@ the regulation H example above
 
  1. `cd /path/to/regulations-parser`
  1. `echo "API_BASE = 'http://127.0.0.1:8888/'" >> local_settings.py`
- 1. `python build_from.py CFR-2012-title12-vol8-part1004.xml 12 2011-18676 15
-   1693`
+ 1. `eregs build_from CFR-2012-title12-vol8-part1004.xml 12 2011-18676 15 1693`
 
 Next up, we set up [regulations-site](https://github.com/cfpb/regulations-site) to provide a webapp.
 
  1. `git clone https://github.com/cfpb/regulations-site.git`
  1. `cd regulations-site`
- 1. `buildout`
+ 1. `pip install -r requirements.txt`
  1. `echo "API_BASE = 'http://127.0.0.1:8888/'" >>
     regulations/settings/local_settings.py`
  1. `./run_server.sh`
