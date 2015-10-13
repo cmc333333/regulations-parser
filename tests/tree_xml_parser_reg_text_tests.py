@@ -338,18 +338,6 @@ class RegTextTest(TestCase):
         self.assertEqual(('A', ('(A) aaaa. ', '(A) aaaa. ')), a)
         self.assertEqual(('<E T="03">1</E>', ('(1) 1111',
                                               '(<E T="03">1</E>) 1111')), a1)
-    def test_get_markers_and_text_deceptive_single(self):
-        """Don't treat a single marker differently than multiple, there might
-        be prefix text"""
-        node = etree.fromstring('<P>Words then (a) a subparagraph</P>')
-        results = reg_text.get_markers_and_text(node, ['a'])
-        self.assertEqual(len(results), 2)
-        prefix, subpar = results
-
-        self.assertEqual(prefix[0], mtypes.MARKERLESS)
-        self.assertEqual(prefix[1][0], 'Words then ')
-        self.assertEqual(subpar[0], 'a')
-        self.assertEqual(subpar[1][0], '(a) a subparagraph')
 
     def test_get_markers_bad_citation(self):
         text = '(vi)<E T="03">Keyterm.</E>The information required by '
