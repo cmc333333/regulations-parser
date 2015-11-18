@@ -2,7 +2,6 @@
 from unittest import TestCase
 
 from regparser.notice import build
-from regparser.notice.diff import DesignateAmendment, Amendment
 from tests.xml_builder import XMLBuilderMixin
 
 
@@ -149,19 +148,6 @@ class NoticeBuildTest(XMLBuilderMixin, TestCase):
             '98': 'This one has <em data-original="E-03">emph</em> tags'
         }})
 
-    def test_process_designate_subpart(self):
-        p_list = ['200-?-1-a', '200-?-1-b']
-        destination = '205-Subpart:A'
-        amended_label = DesignateAmendment('DESIGNATE', p_list, destination)
-
-        subpart_changes = build.process_designate_subpart(amended_label)
-
-        self.assertEqual(['200-1-a', '200-1-b'], subpart_changes.keys())
-
-        for p, change in subpart_changes.items():
-            self.assertEqual(change['destination'], ['205', 'Subpart', 'A'])
-            self.assertEqual(change['action'], 'DESIGNATE')
-
     def test_process_amendments(self):
         with self.tree.builder("REGTEXT", PART="105", TITLE="12") as regtext:
             with regtext.SUBPART() as subpart:
@@ -306,22 +292,6 @@ class NoticeBuildTest(XMLBuilderMixin, TestCase):
                                   "apply:")
                         section.P('(a) "Agent" means agent.')
         return self.tree.render_xml()
-
-    def test_process_new_subpart(self):
-        par = self.new_subpart_xml().xpath('//AMDPAR')[1]
-
-        amended_label = Amendment('POST', '105-Subpart:B')
-        notice = {'cfr_parts': ['105']}
-        subpart_changes = build.process_new_subpart(notice, amended_label, par)
-
-        new_nodes_added = ['105-Subpart-B', '105-30', '105-30-a']
-        self.assertEqual(new_nodes_added, subpart_changes.keys())
-
-        for l, n in subpart_changes.items():
-            self.assertEqual(n['action'], 'POST')
-
-        self.assertEqual(
-            subpart_changes['105-Subpart-B']['node']['node_type'], 'subpart')
 
     def test_process_amendments_subpart(self):
         notice = {'cfr_parts': ['105']}

@@ -5,10 +5,11 @@ from lxml import etree
 
 from regparser.notice import changes
 from regparser.tree.struct import Node, find
-from regparser.notice.diff import Amendment
+from regparser.notice.diff import Amendment, DesignateAmendment
+from tests.xml_builder import XMLBuilderMixin
 
 
-class ChangesTests(TestCase):
+class ChangesTests(XMLBuilderMixin, TestCase):
     def build_tree(self):
         n1 = Node('n1', label=['200', '1'])
         n2 = Node('n1i', label=['200', 1, 'i'])
@@ -270,6 +271,61 @@ class ChangesTests(TestCase):
         change['field'] = '[a field]'
         self.assertEqual(
             changes.pretty_change(change), 'A Field changed to: Some Text')
+
+    def test_process_designate_subpart(self):
+        p_list = ['200-?-1-a', '200-?-1-b']
+        destination = '205-Subpart:A'
+        amended_label = DesignateAmendment('DESIGNATE', p_list, destination)
+
+        subpart_changes = changes.process_designate_subpart(amended_label)
+
+        self.assertEqual(['200-1-a', '200-1-b'], subpart_changes.keys())
+
+        for p, change in subpart_changes.items():
+            self.assertEqual(change['destination'], ['205', 'Subpart', 'A'])
+            self.assertEqual(change['action'], 'DESIGNATE')
+
+    def new_subpart_xml(self):
+        with self.tree.builder("RULE") as rule:
+            with rule.REGTEXT(PART="105", TITLE="12") as regtext:
+                regtext.AMDPAR(u"3. In § 105.1, revise paragraph (b) to read "
+                               "as follows:")
+                with regtext.SECTION() as section:
+                    section.SECTNO(u"§ 105.1")
+                    section.SUBJECT("Purpose.")
+                    section.STARS()
+                    section.P("(b) This part carries out.")
+            with rule.REGTEXT(PART="105", TITLE="12") as regtext:
+                regtext.AMDPAR("6. Add subpart B to read as follows:")
+                with regtext.CONTENTS() as contents:
+                    with contents.SUBPART() as subpart:
+                        subpart.SECHD("Sec.")
+                        subpart.SECTNO("105.30")
+                        subpart.SUBJECT("First In New Subpart.")
+                with regtext.SUBPART() as subpart:
+                    subpart.HD(u"Subpart B—Requirements", SOURCE="HED")
+                    with subpart.SECTION() as section:
+                        section.SECTNO("105.30")
+                        section.SUBJECT("First In New Subpart")
+                        section.P("For purposes of this subpart, the follow "
+                                  "apply:")
+                        section.P('(a) "Agent" means agent.')
+        return self.tree.render_xml()
+
+    def test_process_new_subpart(self):
+        par = self.new_subpart_xml().xpath('//AMDPAR')[1]
+
+        amended_label = Amendment('POST', '105-Subpart:B')
+        subpart_changes = changes.process_new_subpart(amended_label, par)
+
+        new_nodes_added = ['105-Subpart-B', '105-30', '105-30-a']
+        self.assertEqual(new_nodes_added, subpart_changes.keys())
+
+        for l, n in subpart_changes.items():
+            self.assertEqual(n['action'], 'POST')
+
+        self.assertEqual(
+            subpart_changes['105-Subpart-B']['node']['node_type'], 'subpart')
 
 
 class NoticeChangesTests(TestCase):
