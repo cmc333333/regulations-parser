@@ -324,7 +324,7 @@ class ChangesTests(XMLBuilderMixin, TestCase):
             self.assertEqual(n['action'], 'POST')
 
         self.assertEqual(
-            subpart_changes['105-Subpart-B']['node']['node_type'], 'subpart')
+            subpart_changes['105-Subpart-B']['node'].node_type, 'subpart')
 
 
 class NoticeChangesTests(TestCase):
@@ -358,7 +358,7 @@ class NoticeChangesTests(TestCase):
 
         reserve = notice_changes.changes['200-2-a'][0]
         self.assertEqual(reserve['action'], 'RESERVE')
-        self.assertEqual(reserve['node']['text'], u'[Reserved]')
+        self.assertEqual(reserve['node'].text, u'[Reserved]')
 
     def test_create_xml_changes_stars(self):
         labels_amended = [Amendment('PUT', '200-2-a')]
