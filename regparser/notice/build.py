@@ -4,8 +4,6 @@ from lxml import etree
 
 from regparser.notice import changes
 from regparser.notice.address import fetch_addresses
-from regparser.notice.build_appendix import parse_appendix_changes
-from regparser.notice.build_interp import parse_interp_changes
 from regparser.notice.diff import parse_amdpar, find_section, find_subpart
 from regparser.notice.diff import new_subpart_added
 from regparser.notice.diff import DesignateAmendment
@@ -14,7 +12,6 @@ from regparser.notice.sxs import find_section_by_section
 from regparser.notice.sxs import build_section_by_section
 from regparser.notice.util import spaces_then_remove, swap_emphasis_tags
 from regparser.notice.xml import fetch_cfr_parts, xmls_for_url
-from regparser.tree import struct
 from regparser.tree.xml_parser import reg_text
 
 
@@ -99,82 +96,18 @@ def process_new_subpart(notice, amd_label, par):
     return subpart_changes
 
 
-def create_xmlless_changes(amended_labels, notice_changes):
-    """Deletes, moves, and the like do not have an associated XML structure.
-    Add their changes"""
-    amend_map = changes.match_labels_and_changes(amended_labels, None)
-    for label, amendments in amend_map.iteritems():
-        for amendment in amendments:
-            if amendment['action'] == 'DELETE':
-                notice_changes.update({label: {'action': amendment['action']}})
-            elif amendment['action'] == 'MOVE':
-                change = {'action': amendment['action']}
-                destination = [d for d in amendment['destination'] if d != '?']
-                change['destination'] = destination
-                notice_changes.update({label: change})
-            elif amendment['action'] not in ('POST', 'PUT', 'RESERVE'):
-                print 'NOT HANDLED: %s' % amendment['action']
-
-
-def create_xml_changes(amended_labels, section, notice_changes):
-    """For PUT/POST, match the amendments to the section nodes that got
-    parsed, and actually create the notice changes. """
-
-    def per_node(node):
-        node.child_labels = [c.label_id() for c in node.children]
-    struct.walk(section, per_node)
-
-    amend_map = changes.match_labels_and_changes(amended_labels, section)
-
-    for label, amendments in amend_map.iteritems():
-        for amendment in amendments:
-            if amendment['action'] in ('POST', 'PUT'):
-                if 'field' in amendment:
-                    nodes = changes.create_field_amendment(label, amendment)
-                else:
-                    nodes = changes.create_add_amendment(amendment)
-                for n in nodes:
-                    notice_changes.update(n)
-            elif amendment['action'] == 'RESERVE':
-                change = changes.create_reserve_amendment(amendment)
-                notice_changes.update(change)
-            elif amendment['action'] not in ('DELETE', 'MOVE'):
-                print 'NOT HANDLED: %s' % amendment['action']
-
-
-class AmdparByParent(object):
-    """Not all AMDPARs have a single REGTEXT/etc. section associated with them,
-    particularly for interpretations/appendices. This simple class wraps those
-    fields"""
-    def __init__(self, parent, first_amdpar):
-        self.parent = parent
-        self.amdpars = [first_amdpar]
-
-    def append(self, next_amdpar):
-        self.amdpars.append(next_amdpar)
-
-
 def process_amendments(notice, notice_xml):
     """ Process the changes to the regulation that are expressed in the notice.
     """
-    amends = []
     notice_changes = changes.NoticeChanges()
 
-    amdpars_by_parent = []
-    for par in notice_xml.xpath('//AMDPAR'):
-        parent = par.getparent()
-        exists = filter(lambda aXp: aXp.parent == parent, amdpars_by_parent)
-        if exists:
-            exists[0].append(par)
-        else:
-            amdpars_by_parent.append(AmdparByParent(parent, par))
-
     default_cfr_part = notice['cfr_parts'][0]
-    for aXp in amdpars_by_parent:
+    for parent in notice_xml.xpath('.//AMDPAR/..'):
+        amdpars = parent.xpath('./AMDPAR')
         amended_labels = []
         designate_labels, other_labels = [], []
-        context = [aXp.parent.get('PART') or default_cfr_part]
-        for par in aXp.amdpars:
+        context = [parent.get('PART') or default_cfr_part]
+        for par in amdpars:
             als, context = parse_amdpar(par, context)
             amended_labels.extend(als)
 
@@ -192,31 +125,20 @@ def process_amendments(notice, notice_xml):
                 other_labels.append(al)
                 labels_by_part[al.label[0]].append(al)
 
-        create_xmlless_changes(other_labels, notice_changes)
+        notice_changes.create_xmlless_changes(other_labels)
 
+        section_xml = find_section(par)
         for cfr_part, rel_labels in labels_by_part.iteritems():
-            section_xml = find_section(par)
-            if section_xml is not None:
-                for section in reg_text.build_from_section(cfr_part,
-                                                           section_xml):
-                    create_xml_changes(rel_labels, section, notice_changes)
+            notice_changes.add_xml(section_xml, parent, cfr_part, rel_labels)
 
-            for appendix in parse_appendix_changes(rel_labels, cfr_part,
-                                                   aXp.parent):
-                create_xml_changes(rel_labels, appendix, notice_changes)
-
-            interp = parse_interp_changes(rel_labels, cfr_part, aXp.parent)
-            if interp:
-                create_xml_changes(rel_labels, interp, notice_changes)
-
-        amends.extend(designate_labels)
-        amends.extend(other_labels)
+        notice_changes.amendments.extend(designate_labels)
+        notice_changes.amendments.extend(other_labels)
 
         if other_labels:    # Carry cfr_part through amendments
             default_cfr_part = other_labels[-1].label[0]
 
-    if amends:
-        notice['amendments'] = amends
+    if notice_changes.amendments:
+        notice['amendments'] = notice_changes.amendments
         notice['changes'] = notice_changes.changes
 
     return notice

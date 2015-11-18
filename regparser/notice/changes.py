@@ -8,8 +8,11 @@ from collections import defaultdict
 
 from regparser.grammar.tokens import Verb
 from regparser.layer.paragraph_markers import marker_of
+from regparser.notice.build_appendix import parse_appendix_changes
+from regparser.notice.build_interp import parse_interp_changes
 from regparser.tree import struct
 from regparser.tree.paragraph import p_levels
+from regparser.tree.xml_parser.reg_text import build_from_section
 
 
 def node_to_dict(node):
@@ -283,6 +286,7 @@ class NoticeChanges(object):
     """ Notice changes. """
     def __init__(self):
         self.changes = defaultdict(list)
+        self.amendments = []
 
     def update(self, changes):
         """ Essentially add more changes into NoticeChanges. This is
@@ -292,3 +296,57 @@ class NoticeChanges(object):
         for l, c in changes.items():
             if c not in self.changes[l]:
                 self.changes[l].append(c)
+
+    def create_xml_changes(self, amended_labels, section):
+        """For PUT/POST, match the amendments to the section nodes that got
+        parsed, and actually create the notice changes. """
+
+        def per_node(node):
+            node.child_labels = [c.label_id() for c in node.children]
+        struct.walk(section, per_node)
+
+        amend_map = match_labels_and_changes(amended_labels, section)
+
+        for label, amendments in amend_map.iteritems():
+            for amendment in amendments:
+                if amendment['action'] in ('POST', 'PUT'):
+                    if 'field' in amendment:
+                        nodes = create_field_amendment(label, amendment)
+                    else:
+                        nodes = create_add_amendment(amendment)
+                    for n in nodes:
+                        self.update(n)
+                elif amendment['action'] == 'RESERVE':
+                    change = create_reserve_amendment(amendment)
+                    self.update(change)
+                elif amendment['action'] not in ('DELETE', 'MOVE'):
+                    print 'NOT HANDLED: %s' % amendment['action']
+
+    def create_xmlless_changes(self, amended_labels):
+        """Deletes, moves, and the like do not have an associated XML structure.
+        Add their changes"""
+        amend_map = match_labels_and_changes(amended_labels, None)
+        for label, amendments in amend_map.iteritems():
+            for amendment in amendments:
+                if amendment['action'] == 'DELETE':
+                    self.update({label: {'action': amendment['action']}})
+                elif amendment['action'] == 'MOVE':
+                    change = {'action': amendment['action']}
+                    destination = [d for d in amendment['destination']
+                                   if d != '?']
+                    change['destination'] = destination
+                    self.update({label: change})
+                elif amendment['action'] not in ('POST', 'PUT', 'RESERVE'):
+                    print 'NOT HANDLED: %s' % amendment['action']
+
+    def add_xml(self, section_xml, parent, cfr_part, rel_labels):
+        if section_xml is not None:
+            for section in build_from_section(cfr_part, section_xml):
+                self.create_xml_changes(rel_labels, section)
+
+        for appendix in parse_appendix_changes(rel_labels, cfr_part, parent):
+            self.create_xml_changes(rel_labels, appendix)
+
+        interp = parse_interp_changes(rel_labels, cfr_part, parent)
+        if interp:
+            self.create_xml_changes(rel_labels, interp)
