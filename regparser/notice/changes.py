@@ -6,7 +6,7 @@ import logging
 import copy
 from collections import defaultdict
 
-from regparser.notice.diff import (
+from regparser.notice.amdpars import (
     DesignateAmendment, find_section, find_subpart, new_subpart_added,
     parse_amdpar)
 from regparser.grammar.tokens import Verb

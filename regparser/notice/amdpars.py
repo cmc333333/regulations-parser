@@ -1,4 +1,8 @@
 # vim: set encoding=utf-8
+""" This module contains functions to parse amendments to a regulation.
+Importantly, these AMDPARs indicate what is changing and how, but not the
+contents of the change. We might know that a certain paragraph is being
+edited, but not what it's changing to"""
 from itertools import takewhile
 import re
 from copy import copy

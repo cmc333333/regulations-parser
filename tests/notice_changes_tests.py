@@ -5,7 +5,7 @@ from lxml import etree
 
 from regparser.notice import changes
 from regparser.tree.struct import Node, find
-from regparser.notice.diff import Amendment, DesignateAmendment
+from regparser.notice.amdpars import Amendment, DesignateAmendment
 from tests.xml_builder import XMLBuilderMixin
 
 
