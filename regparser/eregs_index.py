@@ -19,6 +19,10 @@ from regparser.tree.struct import (
 ROOT = ".eregs_index"
 
 
+class AmendmentNodeEncoder(AmendmentEncoder, FullNodeEncoder):
+    pass
+
+
 class Entry(object):
     """Encapsulates an entry within the index. This could be a directory or a
     file"""
@@ -141,13 +145,14 @@ class FrozenTreeEntry(TreeEntry):
 class RuleChangesEntry(_JSONEntry):
     """Processes notices, keyed by rule_changes"""
     PREFIX = (ROOT, 'rule_changes')
-    JSON_ENCODER = AmendmentEncoder
+    JSON_ENCODER = AmendmentNodeEncoder
+    JSON_DECODER = staticmethod(full_node_decode_hook)
 
 
 class SxSEntry(_JSONEntry):
     """Processes Section-by-Section analyses, keyed by sxs"""
     PREFIX = (ROOT, 'sxs')
-    JSON_ENCODER = AmendmentEncoder
+    JSON_ENCODER = AmendmentNodeEncoder
 
 
 class LayerEntry(_JSONEntry):
