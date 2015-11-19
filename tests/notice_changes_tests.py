@@ -24,19 +24,19 @@ class ChangesTests(XMLBuilderMixin, TestCase):
 
     def test_find_candidate(self):
         root = self.build_tree()
-        result = changes.find_candidate(root, 'i', [])[0]
+        result = changes.find_candidate(root, 'i')[0]
         self.assertEqual(u'n1i', result.text)
 
         n2c = Node('n3c', label=['200', '2', 'i', 'i'])
         n2 = find(root, '200-2')
         n2.children = [n2c]
 
-        result = changes.find_candidate(root, 'i', [])[0]
+        result = changes.find_candidate(root, 'i')[0]
         self.assertEqual(result.label, ['200', '2', 'i', 'i'])
 
     def test_not_find_candidate(self):
         root = self.build_tree()
-        result = changes.find_candidate(root, 'j', [])
+        result = changes.find_candidate(root, 'j')
         self.assertEqual(result, [])
 
     def test_find_candidate_impossible_label(self):
@@ -48,30 +48,19 @@ class ChangesTests(XMLBuilderMixin, TestCase):
 
         n1b = Node('', label=['200', '1', 'b'])
         n1i = Node('', label=['200', '1', 'i'])
+        n1i.obviously_misparsed = True
         n1.children = [n1a, n1b, n1i]
 
         root = Node('root', label=['200'], children=[n1])
-        candidate = changes.find_candidate(
-            root, 'i', ['200-1-a', '200-1-b'])[0]
+        candidate = changes.find_candidate(root, 'i')[0]
 
         self.assertEqual(candidate.label, ['200', '1', 'i'])
-
-    def test_find_misparsed_node(self):
-        n2 = Node('n1i', label=['200', 1, 'i'])
-        root = self.build_tree()
-
-        result = {'action': 'PUT'}
-
-        result = changes.find_misparsed_node(root, 'i', result, [])
-        self.assertEqual(result['action'], 'PUT')
-        self.assertTrue(result['candidate'])
-        self.assertEqual(result['node'], n2)
 
     def test_create_add_amendment(self):
         root = self.build_tree()
 
-        amendment = {'node': root, 'action': 'POST'}
-        amendments = changes.create_add_amendment(amendment)
+        amendments = changes.create_add_amendment(
+            Amendment('POST', root.label_id()), root)
         self.assertEqual(6, len(amendments))
 
         amends = {}
@@ -100,73 +89,46 @@ class ChangesTests(XMLBuilderMixin, TestCase):
         self.assertEqual('abcd', changes.remove_intro(text))
 
     def test_resolve_candidates(self):
-        amend_map = {}
-
-        n1 = Node('n1', label=['200', '1'])
-        amend_map['200-1-a'] = [{'node': n1, 'candidate': False}]
-
-        n2 = Node('n2', label=['200', '2', 'i'])
-        amend_map['200-2-a-i'] = [{'node': n2, 'candidate': True}]
-
-        self.assertNotEqual(
-            amend_map['200-2-a-i'][0]['node'].label_id(),
-            '200-2-a-i')
-
-        changes.resolve_candidates(amend_map)
-
+        root = Node(label=['200'], children=[
+            Node('n1', label=['200', '1']),
+            Node('n2', label=['200', '1', 'i'])
+        ])
         self.assertEqual(
-            amend_map['200-2-a-i'][0]['node'].label_id(),
-            '200-2-a-i')
-
-    def test_resolve_candidates_accounted_for(self):
-        amend_map = {}
-
-        n1 = Node('n1', label=['200', '1'])
-        amend_map['200-1-a'] = [{'node': n1, 'candidate': False}]
-
-        n2 = Node('n2', label=['200', '2', 'i'])
-
-        amend_map['200-2-a-i'] = [{'node': n2, 'candidate': True}]
-        amend_map['200-2-i'] = [{'node': n2, 'candidate': False}]
-
-        changes.resolve_candidates(amend_map, warn=False)
-        self.assertEqual(2, len(amend_map.keys()))
+            changes.find_misparsed_node(root, ['200', '1', 'a', 'i']),
+            Node('n2', label=['200', '1', 'a', 'i']))
 
     def test_resolve_candidates_double_delete(self):
         """In the unfortunate case where *two* candidates are wrong make
         sure we don't blow up"""
-        amend_map = {}
-
-        n1 = Node('n1', label=['200', '1', 'i'])
-        n2 = Node('n2', label=['200', '1', 'i'])
-        amend_map['200-1-a-i'] = [{'node': n1, 'candidate': True},
-                                  {'node': n2, 'candidate': True}]
-        amend_map['200-1-i'] = []
-        changes.resolve_candidates(amend_map, warn=False)
-        self.assertEqual(1, len(amend_map.keys()))
+        root = Node(label=['200'], children=[
+            Node('n1', label=['200', '1', 'i']),
+            Node('n2', label=['200', '1', 'i'])
+        ])
+        self.assertIsNone(changes.find_misparsed_node(
+            root, ['200', '1', 'a', 'i']))
 
     def test_match_labels_and_changes_move(self):
-        labels_amended = [Amendment('MOVE', '200-1', '200-2')]
-        amend_map = changes.match_labels_and_changes(labels_amended, None)
-        self.assertEqual(amend_map, {
+        notice_changes = changes.NoticeChanges()
+        notice_changes.process_amendment(
+            Amendment('MOVE', '200-1', '200-2'), None, None)
+        self.assertEqual(notice_changes.changes, {
             '200-1': [{'action': 'MOVE', 'destination': ['200', '2']}]})
 
     def test_match_labels_and_changes_delete(self):
-        labels_amended = [Amendment('DELETE', '200-1-a-i')]
-        amend_map = changes.match_labels_and_changes(labels_amended, None)
-        self.assertEqual(amend_map, {
+        notice_changes = changes.NoticeChanges()
+        notice_changes.process_amendment(
+            Amendment('DELETE', '200-1-a-i'), None, None)
+        self.assertEqual(notice_changes.changes, {
             '200-1-a-i': [{'action': 'DELETE'}]})
 
     def test_match_labels_and_changes_reserve(self):
-        labels_amended = [Amendment('RESERVE', '200-2-a')]
-        amend_map = changes.match_labels_and_changes(
-            labels_amended, self.section_node())
-        self.assertEqual(['200-2-a'], amend_map.keys())
-
-        amendments = amend_map['200-2-a']
-        self.assertEqual(amendments[0]['action'], 'RESERVE')
-        self.assertEqual(
-            amendments[0]['node'], Node('n2a', label=['200', '2', 'a']))
+        node = Node('a-node', label=['200', '2', 'a'])
+        notice_changes = changes.NoticeChanges()
+        notice_changes.process_amendment(
+            Amendment('RESERVE', '200-2-a'), None, node)
+        self.assertEqual(notice_changes.changes['200-2-a'][0]['action'],
+                         'RESERVE')
+        self.assertEqual(notice_changes.changes['200-2-a'][0]['node'], node)
 
     def section_node(self):
         n1 = Node('n2', label=['200', '2'])
@@ -177,36 +139,17 @@ class ChangesTests(XMLBuilderMixin, TestCase):
         return root
 
     def test_match_labels_and_changes(self):
-        labels_amended = [Amendment('POST', '200-2'),
-                          Amendment('PUT', '200-2-a')]
+        n2 = Node('n2', label=['200', '2'])
+        n2a = Node('n2a', label=['200', '2', 'a'])
+        notice_changes = changes.NoticeChanges()
+        notice_changes.process_amendment(Amendment('POST', '200-2'), None, n2)
+        notice_changes.process_amendment(
+            Amendment('PUT', '200-2-a'), None, n2a)
 
-        amend_map = changes.match_labels_and_changes(
-            labels_amended, self.section_node())
-
-        self.assertEqual(2, len(amend_map.keys()))
-
-        for label, amendments in amend_map.items():
-            amend = amendments[0]
-            self.assertFalse(amend['candidate'])
-            self.assertTrue(amend['action'] in ['POST', 'PUT'])
-
-    def test_match_labels_and_changes_candidate(self):
-        labels_amended = [
-            Amendment('POST', '200-2'),
-            Amendment('PUT', '200-2-a-1-i')]
-
-        n1 = Node('n2', label=['200', '2'])
-        n2 = Node('n2a', label=['200', '2', 'i'])
-
-        n1.children = [n2]
-        root = Node('root', label=['200'], children=[n1])
-
-        amend_map = changes.match_labels_and_changes(
-            labels_amended, root)
-
-        self.assertTrue(amend_map['200-2-a-1-i'][0]['candidate'])
-        self.assertTrue(
-            amend_map['200-2-a-1-i'][0]['node'].label_id(), '200-2-a-1-i')
+        self.assertEqual(notice_changes.changes['200-2'],
+                         [{'action': 'POST', 'node': n2}])
+        self.assertEqual(notice_changes.changes['200-2-a'],
+                         [{'action': 'PUT', 'node': n2a}])
 
     def test_bad_label(self):
         label = ['205', '4', 'a', '1', 'ii', 'A']
@@ -223,12 +166,13 @@ class ChangesTests(XMLBuilderMixin, TestCase):
         self.assertTrue(changes.bad_label(node))
 
     def test_impossible_label(self):
-        amended_labels = ['205-35-c-1', '205-35-c-2']
+        amendments = [Amendment('POST', '205-35-c-1'),
+                      Amendment('POST', '205-35-c-2')]
         node = Node('', label=['205', '35', 'v'])
-        self.assertTrue(changes.impossible_label(node, amended_labels))
+        self.assertTrue(changes.impossible_label(node, amendments))
 
         node = Node('', label=['205', '35', 'c', '1', 'i'])
-        self.assertFalse(changes.impossible_label(node, amended_labels))
+        self.assertFalse(changes.impossible_label(node, amendments))
 
     def test_pretty_changes(self):
         """Verify the output for a variety of "changes" """
@@ -346,29 +290,24 @@ class NoticeChangesTests(TestCase):
         self.assertEqual(nc.changes['123-32'], [{'action': 'LAST'}])
 
     def test_create_xml_changes_reserve(self):
-        labels_amended = [Amendment('RESERVE', '200-2-a')]
-
         n2a = Node('[Reserved]', label=['200', '2', 'a'])
-        n2 = Node('n2', label=['200', '2'], children=[n2a])
-        root = Node('root', label=['200'], children=[n2])
 
         notice_changes = changes.NoticeChanges()
-        notice_changes.create_xml_changes(labels_amended, root)
+        notice_changes.process_amendment(
+            Amendment('RESERVE', '200-2-a'), None, n2a)
 
         reserve = notice_changes.changes['200-2-a'][0]
         self.assertEqual(reserve['action'], 'RESERVE')
         self.assertEqual(reserve['node'].text, u'[Reserved]')
 
     def test_create_xml_changes_stars(self):
-        labels_amended = [Amendment('PUT', '200-2-a')]
         n2a1 = Node('(1) Content', label=['200', '2', 'a', '1'])
         n2a2 = Node('(2) Content', label=['200', '2', 'a', '2'])
         n2a = Node('(a) * * *', label=['200', '2', 'a'], children=[n2a1, n2a2])
-        n2 = Node('n2', label=['200', '2'], children=[n2a])
-        root = Node('root', label=['200'], children=[n2])
 
         notice_changes = changes.NoticeChanges()
-        notice_changes.create_xml_changes(labels_amended, root)
+        notice_changes.process_amendment(
+            Amendment('PUT', '200-2-a'), None, n2a)
 
         for label in ('200-2-a-1', '200-2-a-2'):
             self.assertTrue(label in notice_changes.changes)
@@ -384,15 +323,13 @@ class NoticeChangesTests(TestCase):
         self.assertFalse('field' in change)
 
     def test_create_xml_changes_stars_hole(self):
-        labels_amended = [Amendment('PUT', '200-2-a')]
         n2a1 = Node('(1) * * *', label=['200', '2', 'a', '1'])
         n2a2 = Node('(2) a2a2a2', label=['200', '2', 'a', '2'])
         n2a = Node('(a) aaa', label=['200', '2', 'a'], children=[n2a1, n2a2])
-        n2 = Node('n2', label=['200', '2'], children=[n2a])
-        root = Node('root', label=['200'], children=[n2])
 
         notice_changes = changes.NoticeChanges()
-        notice_changes.create_xml_changes(labels_amended, root)
+        notice_changes.process_amendment(
+            Amendment('PUT', '200-2-a'), None, n2a)
 
         for label in ('200-2-a', '200-2-a-2'):
             self.assertTrue(label in notice_changes.changes)
@@ -408,16 +345,13 @@ class NoticeChangesTests(TestCase):
         self.assertFalse('field' in change)
 
     def test_create_xml_changes_child_stars(self):
-        labels_amended = [Amendment('PUT', '200-2-a')]
         xml = etree.fromstring("<ROOT><P>(a) Content</P><STARS /></ROOT>")
         n2a = Node('(a) Content', label=['200', '2', 'a'],
                    source_xml=xml.xpath('//P')[0])
-        n2b = Node('(b) Content', label=['200', '2', 'b'])
-        n2 = Node('n2', label=['200', '2'], children=[n2a, n2b])
-        root = Node('root', label=['200'], children=[n2])
 
+        amendment = Amendment('PUT', '200-2-a')
         notice_changes = changes.NoticeChanges()
-        notice_changes.create_xml_changes(labels_amended, root)
+        notice_changes.process_amendment(amendment, None, n2a)
 
         self.assertTrue('200-2-a' in notice_changes.changes)
         self.assertTrue(1, len(notice_changes.changes['200-2-a']))
@@ -429,7 +363,7 @@ class NoticeChangesTests(TestCase):
         n2a.source_xml.text = n2a.source_xml.text + ":"
 
         notice_changes = changes.NoticeChanges()
-        notice_changes.create_xml_changes(labels_amended, root)
+        notice_changes.process_amendment(amendment, None, n2a)
 
         self.assertTrue('200-2-a' in notice_changes.changes)
         self.assertTrue(1, len(notice_changes.changes['200-2-a']))
@@ -439,11 +373,12 @@ class NoticeChangesTests(TestCase):
 
     def test_create_xmlless_changes(self):
         notice_changes = changes.NoticeChanges()
-        notice_changes.process_amendment(Amendment('DELETE', '200-2-a'), None)
+        notice_changes.process_amendment(
+            Amendment('DELETE', '200-2-a'), None, None)
         self.assertEqual({'action': 'DELETE'},
                          notice_changes.changes['200-2-a'][0])
 
         notice_changes.process_amendment(
-            Amendment('MOVE', '200-2-b', '200-2-c'), None)
+            Amendment('MOVE', '200-2-b', '200-2-c'), None, None)
         self.assertEqual({'action': 'MOVE', 'destination': ['200', '2', 'c']},
                          notice_changes.changes['200-2-b'][0])

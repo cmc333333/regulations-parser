@@ -1,7 +1,6 @@
 """ This module contains functions to help parse the changes in a notice.
 Changes are the exact details of how the pargraphs, sections etc. in a
 regulation have changed.  """
-import logging
 import copy
 from collections import defaultdict
 
@@ -10,7 +9,8 @@ from lxml import etree
 from regparser.grammar.tokens import Verb
 from regparser.layer.paragraph_markers import marker_of
 from regparser.notice.amdpars import (
-    DesignateAmendment, fix_section_node, new_subpart_added, parse_amdpar)
+    Amendment, DesignateAmendment, fix_section_node, new_subpart_added,
+    parse_amdpar)
 from regparser.notice.build_appendix import parse_appendix_changes
 from regparser.notice.build_interp import parse_interp_changes
 from regparser.tree import struct
@@ -35,15 +35,15 @@ def bad_label(node):
     return False
 
 
-def impossible_label(n, amended_labels):
+def impossible_label(n, amendments):
     """ Return True if n is not in the same family as amended_labels. """
-    for l in amended_labels:
-        if n.label_id().startswith(l):
+    for amendment in amendments:
+        if n.label_id().startswith(amendment.label_id()):
             return False
     return True
 
 
-def find_candidate(root, label_last, amended_labels):
+def find_candidate(root, label_last):
     """
         Look through the tree for a node that has the same paragraph marker as
         the one we're looking for (and also has no children).  That might be a
@@ -53,7 +53,7 @@ def find_candidate(root, label_last, amended_labels):
     """
     def check(node):
         """ Match last part of label."""
-        if node.label[-1] == label_last:
+        if node.label and node.label[-1] == label_last:
             return node
 
     candidates = struct.walk(root, check)
@@ -64,7 +64,7 @@ def find_candidate(root, label_last, amended_labels):
 
         bad_labels = [n for n in candidates if bad_label(n)]
         impossible_labels = [n for n in candidates
-                             if impossible_label(n, amended_labels)]
+                             if hasattr(n, 'obviously_misparsed')]
         no_children = [n for n in candidates if n.children == []]
 
         # If we have a single option in any of the categories, return that.
@@ -77,22 +77,7 @@ def find_candidate(root, label_last, amended_labels):
     return candidates
 
 
-def resolve_candidates(amend_map, warn=True):
-    """Ensure candidate isn't actually accounted for elsewhere, and fix
-    it's label. """
-    for label, nodes in amend_map.items():
-        for node in filter(lambda n: 'node' in n and n['candidate'], nodes):
-            node_label = node['node'].label_id()
-            if node_label not in amend_map:
-                node['node'].label = label.split('-')
-            elif label in amend_map:
-                del amend_map[label]
-                if warn:
-                    mesg = 'Unable to match amendment to change for: %s'
-                    logging.warning(mesg, label)
-
-
-def find_misparsed_node(section_node, label, change, amended_labels):
+def find_misparsed_node(tree, label):
     """ Nodes can get misparsed in the sense that we don't always know where
     they are in the tree or have their correct label. The first part
     corrects markerless labeled nodes by updating the node's label if
@@ -103,58 +88,16 @@ def find_misparsed_node(section_node, label, change, amended_labels):
 
     is_markerless = struct.Node.is_markerless_label(label)
     markerless_paragraphs = struct.filter_walk(
-        section_node,
+        tree,
         struct.Node.is_markerless_label)
     if is_markerless and len(markerless_paragraphs) == 1:
-        change['node'] = markerless_paragraphs[0]
-        change['candidate'] = True
-        return change
+        markerless_paragraphs[0].label = label
+        return markerless_paragraphs[0]
 
-    candidates = find_candidate(section_node, label[-1], amended_labels)
+    candidates = find_candidate(tree, label[-1])
     if len(candidates) == 1:
-        candidate = candidates[0]
-        change['node'] = candidate
-        change['candidate'] = True
-        return change
-
-
-def amendment_to_change(amendment, section_node, amended_labels):
-    change = {'action': amendment.action}
-    if amendment.field is not None:
-        change['field'] = amendment.field
-
-    if amendment.action == 'MOVE':
-        change['destination'] = amendment.destination
-        return change
-    elif amendment.action == 'DELETE':
-        return change
-    elif section_node is not None:
-        node = struct.find(section_node, amendment.label_id())
-        if node is None:
-            candidate = find_misparsed_node(
-                section_node, amendment.label, change, amended_labels)
-            if candidate:
-                return candidate
-        else:
-            change['node'] = node
-            change['candidate'] = False
-            return change
-
-
-def match_labels_and_changes(amendments, section_node):
-    """ Given the list of amendments, and the parsed section node, match the
-    two so that we're only changing what's been flagged as changing. This helps
-    eliminate paragraphs that are just stars for positioning, for example.  """
-    amended_labels = [a.label_id() for a in amendments]
-
-    amend_map = defaultdict(list)
-    for amend in amendments:
-        change = amendment_to_change(amend, section_node, amended_labels)
-        if change:
-            amend_map[amend.label_id()].append(change)
-
-    resolve_candidates(amend_map)
-    return amend_map
+        candidates[0].label = label
+        return candidates[0]
 
 
 def format_node(node, amendment):
@@ -171,31 +114,15 @@ def format_node(node, amendment):
 
     node_as_dict = {
         'node': node_no_kids,
-        'action': amendment['action'],
+        'action': amendment.action
     }
 
-    if 'extras' in amendment:
-        node_as_dict.update(amendment['extras'])
-
-    if 'field' in amendment:
-        node_as_dict['field'] = amendment['field']
+    if amendment.field:
+        node_as_dict['field'] = amendment.field
     return {node.label_id(): node_as_dict}
 
 
-def create_field_amendment(label, amendment):
-    """ If an amendment is changing just a field (text, title) then we
-    don't need to package the rest of the paragraphs with it. Those get
-    dealt with later, if appropriate. """
-
-    nodes_list = []
-    flatten_tree(nodes_list, amendment['node'])
-
-    changed_nodes = [n for n in nodes_list if n.label_id() == label]
-    nodes = [format_node(n, amendment) for n in changed_nodes]
-    return nodes
-
-
-def create_add_amendment(amendment):
+def create_add_amendment(amendment, amd_node):
     """ An amendment comes in with a whole tree structure. We break apart the
     tree here (this is what flatten does), convert the Node objects to JSON
     representations. This ensures that each amendment only acts on one node.
@@ -203,12 +130,13 @@ def create_add_amendment(amendment):
     """
 
     nodes_list = []
-    flatten_tree(nodes_list, amendment['node'])
-    changes = [format_node(n, amendment) for n in nodes_list]
+    flatten_tree(nodes_list, amd_node)
+    changes = [{n.label_id(): {'node': n, 'action': amendment.action}}
+               for n in nodes_list]
 
     for change in filter(lambda c: c.values()[0]['action'] == 'PUT', changes):
         label = change.keys()[0]
-        node = struct.find(amendment['node'], label)
+        node = struct.find(amd_node, label)
         text = node.text.strip()
         marker = marker_of(node)
         text = text[len(marker):].strip()
@@ -219,7 +147,7 @@ def create_add_amendment(amendment):
 
         # If text ends with a colon and is followed by stars, assume we are
         # only modifying the intro text
-        if (text[-1:] == ':' and node.label == amendment['node'].label
+        if (text[-1:] == ':' and node.label == amd_node.label
                 and node.source_xml is not None):
             following = node.source_xml.getnext()
             if following is not None and following.tag == 'STARS':
@@ -228,22 +156,16 @@ def create_add_amendment(amendment):
     return changes
 
 
-def create_reserve_amendment(amendment):
-    """ Create a RESERVE related amendment. """
-    return format_node(amendment['node'], amendment)
-
-
 def create_subpart_amendment(subpart_node):
     """ Create an amendment that describes a subpart. In particular
     when the list of nodes added gets flattened, each node specifies which
     subpart it's part of. """
-
-    amendment = {
-        'node': subpart_node,
-        'action': 'POST',
-        'extras': {'subpart': subpart_node.label}
-    }
-    return create_add_amendment(amendment)
+    changes = create_add_amendment(Amendment('POST', subpart_node.label_id()),
+                                   subpart_node)
+    for change in changes:
+        for c in change.values():
+            c['extras'] = {'subpart': subpart_node.label}
+    return changes
 
 
 def flatten_tree(node_list, node):
@@ -324,20 +246,25 @@ def find_trees(xml_parent, cfr_parts, amendments):
             if potential_section:
                 section_xmls.append(potential_section)
 
-    for section_xml in section_xmls:
-        for cfr_part in cfr_parts:
+    for cfr_part in cfr_parts:
+        for section_xml in section_xmls:
             for section in build_from_section(cfr_part, section_xml):
                 yield section
-
-    for cfr_part in cfr_parts:
         for appendix in parse_appendix_changes(amendments, cfr_part,
                                                xml_parent):
             yield appendix
-
-    for cfr_part in cfr_parts:
         interp = parse_interp_changes(amendments, cfr_part, xml_parent)
         if interp:
             yield interp
+
+
+def find_node_for_amendment(amendment, root, node_lookup):
+    if not isinstance(amendment, DesignateAmendment):
+        label_id = amendment.label_id()
+        if label_id in node_lookup:
+            return node_lookup[label_id]
+        elif amendment.action in ('POST', 'PUT', 'RESERVE'):
+            return find_misparsed_node(root, amendment.label)
 
 
 class NoticeChanges(object):
@@ -356,32 +283,7 @@ class NoticeChanges(object):
             if c not in self.changes[l]:
                 self.changes[l].append(c)
 
-    def create_xml_changes(self, amended_labels, section):
-        """For PUT/POST, match the amendments to the section nodes that got
-        parsed, and actually create the notice changes. """
-
-        def per_node(node):
-            node.child_labels = [c.label_id() for c in node.children]
-        struct.walk(section, per_node)
-
-        amend_map = match_labels_and_changes(amended_labels, section)
-
-        for label, amendments in amend_map.iteritems():
-            for amendment in amendments:
-                if amendment['action'] in ('POST', 'PUT'):
-                    if 'field' in amendment:
-                        nodes = create_field_amendment(label, amendment)
-                    else:
-                        nodes = create_add_amendment(amendment)
-                    for n in nodes:
-                        self.update(n)
-                elif amendment['action'] == 'RESERVE':
-                    change = create_reserve_amendment(amendment)
-                    self.update(change)
-                elif amendment['action'] not in ('DELETE', 'MOVE'):
-                    print 'NOT HANDLED: %s' % amendment['action']
-
-    def process_amendments(self, amdpar_parent):
+    def find_amendments(self, amdpar_parent):
         amdpars = amdpar_parent.xpath('./AMDPAR')
         amendments = []
         context = [amdpar_parent.get('PART') or self.default_cfr_part]
@@ -391,44 +293,53 @@ class NoticeChanges(object):
                 amendments.append(al)
         return amendments
 
-    def process_amendment(self, amendment, parent):
+    def process_amendment(self, amendment, parent, node):
         if isinstance(amendment, DesignateAmendment):
             subpart_changes = process_designate_subpart(amendment)
             if subpart_changes:
                 self.update(subpart_changes)
-            return True
         elif new_subpart_added(amendment):
             self.update(process_new_subpart(amendment, parent))
-            return True
         elif amendment.action == 'DELETE':
             self.update({amendment.label_id(): {'action': 'DELETE'}})
             self.default_cfr_part = amendment.label[0]
-            return True
         elif amendment.action == 'MOVE':
             destination = [d for d in amendment.destination if d != '?']
             self.update({amendment.label_id(): {
                 'action': 'MOVE', 'destination': destination}})
             self.default_cfr_part = amendment.label[0]
-            return True
+        elif node and amendment.action == 'RESERVE':
+            node_no_kids = copy.deepcopy(node)
+            node_no_kids.children = []
+            self.update({amendment.label_id(): {
+                'action': 'RESERVE', 'node': node_no_kids}})
+        elif node and amendment.action in ('POST', 'PUT') and amendment.field:
+            self.update(format_node(node, amendment))
+        elif node and amendment.action in ('POST', 'PUT'):
+            for result in create_add_amendment(amendment, node):
+                self.update(result)
+        elif not node:
+            print "ERRRRRROR"
         else:
-            return False
+            print 'NOT HANDLED: %s' % amendment['action']
 
     def process_amdpars(self, notice_xml):
         for parent in notice_xml.xpath('.//AMDPAR/..'):
-            other_labels = []
-            amended_labels = self.process_amendments(parent)
+            amendments = self.find_amendments(parent)
+            cfr_parts = set(a.label[0] for a in amendments
+                            if hasattr(a, 'label'))
+            node_lookup, root = {}, struct.Node()
+            for tree in find_trees(parent, cfr_parts, amendments):
+                root.children.append(tree)
+                for node in struct.walk(tree, lambda n: n):
+                    node.child_labels = [c.label_id() for c in node.children]
+                    node_lookup[node.label_id()] = node
+                    if impossible_label(node, amendments):
+                        node.obviously_misparsed = True
 
-            for al in amended_labels:
-                if self.process_amendment(al, parent):
-                    self.amendments.append(al)
-                else:
-                    other_labels.append(al)
-
-            cfr_parts = set(al.label[0] for al in other_labels)
-            for tree in find_trees(parent, cfr_parts, other_labels):
-                self.create_xml_changes(other_labels, tree)
-
-            self.amendments.extend(other_labels)
-
-            if other_labels:    # Carry cfr_part through amendments
-                self.default_cfr_part = other_labels[-1].label[0]
+            for amendment in amendments:
+                node = find_node_for_amendment(amendment, root, node_lookup)
+                self.process_amendment(amendment, parent, node)
+                self.amendments.append(amendment)
+                if not isinstance(amendment, DesignateAmendment):
+                    self.default_cfr_part = amendment.label[0]
