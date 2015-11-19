@@ -2,7 +2,7 @@
 import click
 
 from regparser.builder import tree_and_builder
-from regparser.notice.changes import node_to_dict, pretty_change
+from regparser.notice.changes import pretty_change
 from regparser.tree.struct import find
 
 
@@ -24,7 +24,7 @@ def watch_node(node_label, filename, title):
     if initial_node:
         click.echo("> " + builder.doc_number)
         click.echo("\t" + pretty_change(
-            {'action': 'POST', 'node': node_to_dict(initial_node)}))
+            {'action': 'POST', 'node': initial_node}))
 
     # search for label
     for version, changes in builder.changes_in_sequence():

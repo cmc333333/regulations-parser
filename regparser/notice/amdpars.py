@@ -83,13 +83,6 @@ def find_section(amdpar_xml):
     return section
 
 
-def find_subpart(amdpar_tag):
-    """ Look amongst an amdpar tag's siblings to find a subpart. """
-    for sibling in amdpar_tag.itersiblings():
-        if sibling.tag == 'SUBPART':
-            return sibling
-
-
 def find_diffs(xml_tree, cfr_part):
     """Find the XML nodes that are needed to determine diffs"""
     #   Only final notices have this format

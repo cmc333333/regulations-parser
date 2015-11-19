@@ -244,7 +244,7 @@ class ChangesTests(XMLBuilderMixin, TestCase):
                                    'destination': ['123', '43', 'a', '2']}),
             'Moved to 123-43-a-2')
 
-        node = {'text': 'Some Text'}
+        node = Node('Some Text')
         change = {'action': 'PUT', 'node': node}
         self.assertEqual(
             changes.pretty_change(change), 'Modified: Some Text')
@@ -253,7 +253,7 @@ class ChangesTests(XMLBuilderMixin, TestCase):
         self.assertEqual(
             changes.pretty_change(change), 'Added: Some Text')
 
-        node['title'] = 'A Title'
+        node.title = 'A Title'
         self.assertEqual(
             changes.pretty_change(change), 'Added (title: A Title): Some Text')
 
@@ -266,7 +266,7 @@ class ChangesTests(XMLBuilderMixin, TestCase):
         self.assertEqual(
             changes.pretty_change(change), 'Title changed to: A Title')
 
-        del node['title']
+        node.title = None
         change['field'] = '[a field]'
         self.assertEqual(
             changes.pretty_change(change), 'A Field changed to: Some Text')
@@ -312,10 +312,9 @@ class ChangesTests(XMLBuilderMixin, TestCase):
         return self.tree.render_xml()
 
     def test_process_new_subpart(self):
-        par = self.new_subpart_xml().xpath('//AMDPAR')[1]
-
         amended_label = Amendment('POST', '105-Subpart:B')
-        subpart_changes = changes.process_new_subpart(amended_label, par)
+        subpart_changes = changes.process_new_subpart(
+            amended_label, self.new_subpart_xml().xpath('.//REGTEXT')[1])
 
         new_nodes_added = ['105-Subpart-B', '105-30', '105-30-a']
         self.assertEqual(new_nodes_added, subpart_changes.keys())
@@ -439,13 +438,12 @@ class NoticeChangesTests(TestCase):
         self.assertEqual('[text]', change.get('field'))
 
     def test_create_xmlless_changes(self):
-        labels_amended = [Amendment('DELETE', '200-2-a'),
-                          Amendment('MOVE', '200-2-b', '200-2-c')]
         notice_changes = changes.NoticeChanges()
-        notice_changes.create_xmlless_changes(labels_amended)
+        notice_changes.process_amendment(Amendment('DELETE', '200-2-a'), None)
+        self.assertEqual({'action': 'DELETE'},
+                         notice_changes.changes['200-2-a'][0])
 
-        delete = notice_changes.changes['200-2-a'][0]
-        move = notice_changes.changes['200-2-b'][0]
-        self.assertEqual({'action': 'DELETE'}, delete)
+        notice_changes.process_amendment(
+            Amendment('MOVE', '200-2-b', '200-2-c'), None)
         self.assertEqual({'action': 'MOVE', 'destination': ['200', '2', 'c']},
-                         move)
+                         notice_changes.changes['200-2-b'][0])

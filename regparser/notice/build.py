@@ -69,8 +69,8 @@ def set_document_numbers(notices):
 def process_amendments(notice, notice_xml):
     """ Process the changes to the regulation that are expressed in the notice.
     """
-    notice_changes = changes.NoticeChanges()
-    notice_changes.process_amdpars(notice['cfr_parts'][0], notice_xml)
+    notice_changes = changes.NoticeChanges(notice['cfr_parts'][0])
+    notice_changes.process_amdpars(notice_xml)
     if notice_changes.amendments:
         notice['amendments'] = notice_changes.amendments
         notice['changes'] = notice_changes.changes

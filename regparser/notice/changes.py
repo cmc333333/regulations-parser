@@ -10,27 +10,13 @@ from lxml import etree
 from regparser.grammar.tokens import Verb
 from regparser.layer.paragraph_markers import marker_of
 from regparser.notice.amdpars import (
-    DesignateAmendment, find_section, find_subpart, new_subpart_added,
-    parse_amdpar)
+    DesignateAmendment, fix_section_node, new_subpart_added, parse_amdpar)
 from regparser.notice.build_appendix import parse_appendix_changes
 from regparser.notice.build_interp import parse_interp_changes
 from regparser.tree import struct
 from regparser.tree.paragraph import p_levels
 from regparser.tree.xml_parser.reg_text import (
     build_from_section, build_subpart)
-
-
-def node_to_dict(node):
-    """ Convert a node to a dictionary representation. We skip the
-    children, turning them instead into a list of labels instead. """
-    if not hasattr(node, 'child_labels'):
-        node.child_labels = [c.label_id() for c in node.children]
-
-    node_dict = {}
-    for k, v in node.__dict__.items():
-        if k not in ('children', 'source_xml'):
-            node_dict[k] = v
-    return node_dict
 
 
 def bad_label(node):
@@ -132,6 +118,29 @@ def find_misparsed_node(section_node, label, change, amended_labels):
         return change
 
 
+def amendment_to_change(amendment, section_node, amended_labels):
+    change = {'action': amendment.action}
+    if amendment.field is not None:
+        change['field'] = amendment.field
+
+    if amendment.action == 'MOVE':
+        change['destination'] = amendment.destination
+        return change
+    elif amendment.action == 'DELETE':
+        return change
+    elif section_node is not None:
+        node = struct.find(section_node, amendment.label_id())
+        if node is None:
+            candidate = find_misparsed_node(
+                section_node, amendment.label, change, amended_labels)
+            if candidate:
+                return candidate
+        else:
+            change['node'] = node
+            change['candidate'] = False
+            return change
+
+
 def match_labels_and_changes(amendments, section_node):
     """ Given the list of amendments, and the parsed section node, match the
     two so that we're only changing what's been flagged as changing. This helps
@@ -140,26 +149,9 @@ def match_labels_and_changes(amendments, section_node):
 
     amend_map = defaultdict(list)
     for amend in amendments:
-        change = {'action': amend.action}
-        if amend.field is not None:
-            change['field'] = amend.field
-
-        if amend.action == 'MOVE':
-            change['destination'] = amend.destination
+        change = amendment_to_change(amend, section_node, amended_labels)
+        if change:
             amend_map[amend.label_id()].append(change)
-        elif amend.action == 'DELETE':
-            amend_map[amend.label_id()].append(change)
-        elif section_node is not None:
-            node = struct.find(section_node, amend.label_id())
-            if node is None:
-                candidate = find_misparsed_node(
-                    section_node, amend.label, change, amended_labels)
-                if candidate:
-                    amend_map[amend.label_id()].append(candidate)
-            else:
-                change['node'] = node
-                change['candidate'] = False
-                amend_map[amend.label_id()].append(change)
 
     resolve_candidates(amend_map)
     return amend_map
@@ -278,13 +270,13 @@ def pretty_change(change):
     field = change.get('field')
     if change['action'] == Verb.PUT and field:
         return '%s changed to: %s' % (field.strip('[]').title(),
-                                      node.get('title', node['text']))
+                                      node.title or node.text)
     elif change['action'] in (Verb.PUT, Verb.POST):
         verb = 'Modified' if change['action'] == Verb.PUT else 'Added'
-        if node.get('title'):
-            return verb + ' (title: %s): %s' % (node['title'], node['text'])
+        if node.title:
+            return verb + ' (title: %s): %s' % (node.title, node.text)
         else:
-            return verb + ": " + node['text']
+            return verb + ": " + node.text
     elif change['action'] == Verb.DELETE:
         return 'Deleted'
     elif change['action'] == Verb.DESIGNATE:
@@ -310,10 +302,10 @@ def process_designate_subpart(amendment):
         return subpart_changes
 
 
-def process_new_subpart(amd_label, par):
+def process_new_subpart(amd_label, parent):
     """ A new subpart has been added, create the notice changes. """
     subpart_changes = {}
-    subpart_xml = find_subpart(par)
+    subpart_xml = parent.xpath('./SUBPART')[0]
     subpart = build_subpart(amd_label.label[0], subpart_xml)
 
     for change in create_subpart_amendment(subpart):
@@ -321,9 +313,37 @@ def process_new_subpart(amd_label, par):
     return subpart_changes
 
 
+def find_trees(xml_parent, cfr_parts, amendments):
+    """Find and parse regtext sections, interpretations, appendices"""
+    section_xmls = xml_parent.xpath('./SECTION')
+    if not section_xmls:
+        last_amdpar = xml_parent.xpath('./AMDPAR')[-1]
+        paragraphs = [s for s in last_amdpar.itersiblings() if s.tag == 'P']
+        if len(paragraphs) > 0:
+            potential_section = fix_section_node(paragraphs, last_amdpar)
+            if potential_section:
+                section_xmls.append(potential_section)
+
+    for section_xml in section_xmls:
+        for cfr_part in cfr_parts:
+            for section in build_from_section(cfr_part, section_xml):
+                yield section
+
+    for cfr_part in cfr_parts:
+        for appendix in parse_appendix_changes(amendments, cfr_part,
+                                               xml_parent):
+            yield appendix
+
+    for cfr_part in cfr_parts:
+        interp = parse_interp_changes(amendments, cfr_part, xml_parent)
+        if interp:
+            yield interp
+
+
 class NoticeChanges(object):
     """ Notice changes. """
-    def __init__(self):
+    def __init__(self, initial_cfr_part=None):
+        self.default_cfr_part = initial_cfr_part
         self.changes = defaultdict(list)
         self.amendments = []
 
@@ -361,67 +381,54 @@ class NoticeChanges(object):
                 elif amendment['action'] not in ('DELETE', 'MOVE'):
                     print 'NOT HANDLED: %s' % amendment['action']
 
-    def create_xmlless_changes(self, amended_labels):
-        """Deletes, moves, and the like do not have an associated XML structure.
-        Add their changes"""
-        amend_map = match_labels_and_changes(amended_labels, None)
-        for label, amendments in amend_map.iteritems():
-            for amendment in amendments:
-                if amendment['action'] == 'DELETE':
-                    self.update({label: {'action': amendment['action']}})
-                elif amendment['action'] == 'MOVE':
-                    change = {'action': amendment['action']}
-                    destination = [d for d in amendment['destination']
-                                   if d != '?']
-                    change['destination'] = destination
-                    self.update({label: change})
-                elif amendment['action'] not in ('POST', 'PUT', 'RESERVE'):
-                    print 'NOT HANDLED: %s' % amendment['action']
+    def process_amendments(self, amdpar_parent):
+        amdpars = amdpar_parent.xpath('./AMDPAR')
+        amendments = []
+        context = [amdpar_parent.get('PART') or self.default_cfr_part]
+        for par in amdpars:
+            amends, context = parse_amdpar(par, context)
+            for al in amends:
+                amendments.append(al)
+        return amendments
 
-    def add_xml(self, section_xml, parent, cfr_part, rel_labels):
-        if section_xml is not None:
-            for section in build_from_section(cfr_part, section_xml):
-                self.create_xml_changes(rel_labels, section)
+    def process_amendment(self, amendment, parent):
+        if isinstance(amendment, DesignateAmendment):
+            subpart_changes = process_designate_subpart(amendment)
+            if subpart_changes:
+                self.update(subpart_changes)
+            return True
+        elif new_subpart_added(amendment):
+            self.update(process_new_subpart(amendment, parent))
+            return True
+        elif amendment.action == 'DELETE':
+            self.update({amendment.label_id(): {'action': 'DELETE'}})
+            self.default_cfr_part = amendment.label[0]
+            return True
+        elif amendment.action == 'MOVE':
+            destination = [d for d in amendment.destination if d != '?']
+            self.update({amendment.label_id(): {
+                'action': 'MOVE', 'destination': destination}})
+            self.default_cfr_part = amendment.label[0]
+            return True
+        else:
+            return False
 
-        for appendix in parse_appendix_changes(rel_labels, cfr_part, parent):
-            self.create_xml_changes(rel_labels, appendix)
-
-        interp = parse_interp_changes(rel_labels, cfr_part, parent)
-        if interp:
-            self.create_xml_changes(rel_labels, interp)
-
-    def process_amdpars(self, default_cfr_part, notice_xml):
+    def process_amdpars(self, notice_xml):
         for parent in notice_xml.xpath('.//AMDPAR/..'):
-            amdpars = parent.xpath('./AMDPAR')
-            amended_labels = []
-            designate_labels, other_labels = [], []
-            context = [parent.get('PART') or default_cfr_part]
-            for par in amdpars:
-                als, context = parse_amdpar(par, context)
-                amended_labels.extend(als)
+            other_labels = []
+            amended_labels = self.process_amendments(parent)
 
-            labels_by_part = defaultdict(list)
             for al in amended_labels:
-                if isinstance(al, DesignateAmendment):
-                    subpart_changes = process_designate_subpart(al)
-                    if subpart_changes:
-                        self.update(subpart_changes)
-                    designate_labels.append(al)
-                elif new_subpart_added(al):
-                    self.update(process_new_subpart(al, par))
-                    designate_labels.append(al)
+                if self.process_amendment(al, parent):
+                    self.amendments.append(al)
                 else:
                     other_labels.append(al)
-                    labels_by_part[al.label[0]].append(al)
 
-            self.create_xmlless_changes(other_labels)
+            cfr_parts = set(al.label[0] for al in other_labels)
+            for tree in find_trees(parent, cfr_parts, other_labels):
+                self.create_xml_changes(other_labels, tree)
 
-            section_xml = find_section(par)
-            for cfr_part, rel_labels in labels_by_part.iteritems():
-                self.add_xml(section_xml, parent, cfr_part, rel_labels)
-
-            self.amendments.extend(designate_labels)
             self.amendments.extend(other_labels)
 
             if other_labels:    # Carry cfr_part through amendments
-                default_cfr_part = other_labels[-1].label[0]
+                self.default_cfr_part = other_labels[-1].label[0]
