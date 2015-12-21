@@ -36,7 +36,7 @@ tweaked to pass the parser.
 1. `git clone https://github.com/cfpb/fr-notices.git`
 1. `pip install -r requirements.txt`
 1. `echo "LOCAL_XML_PATHS = ['fr-notices/']" >> local_settings.py`
-1. `eregs build_from fr-notices/articles/xml/201/131/725.xml 12 2011-31725 15 1693`
+1. `eregs build_from fr-notices/articles/xml/201/131/725.xml 12`
 
 If you review the history of the `fr-notices` repo, you'll see some of the types of changes that need to be made.
 
@@ -155,7 +155,7 @@ $ eregs build_from regulation.xml title
 
 For example, to match the reissuance above:
 ```bash
-$ eregs build_from 725.xml 12 15 1693
+$ eregs build_from 725.xml 12
 ```
 
 Here ```12``` is the CFR title number (in our case, for "Banks and Banking").
@@ -581,7 +581,7 @@ the regulation H example above
 
  1. `cd /path/to/regulations-parser`
  1. `echo "API_BASE = 'http://127.0.0.1:8888/'" >> local_settings.py`
- 1. `eregs build_from CFR-2012-title12-vol8-part1004.xml 12 2011-18676 15 1693`
+ 1. `eregs build_from CFR-2012-title12-vol8-part1004.xml 12`
 
 Next up, we set up [regulations-site](https://github.com/cfpb/regulations-site) to provide a webapp.
 
