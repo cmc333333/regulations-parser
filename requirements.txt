@@ -10,5 +10,5 @@ lockfile==0.12.2  # Optional dep used by cachecontrol
 lxml==3.5.0
 pyparsing==2.0.5  # 2.0.6 has a unicode bug, fixed in current trunk: http://sourceforge.net/p/pyparsing/code/HEAD/tree/tags/pyparsing_2.0.6/src/pyparsing.py#l2354
 python-constraint==1.2
-requests==2.9.1
+requests==2.6.0   # Pegging to this version until https://github.com/ionrock/cachecontrol/issues/81 is resolved
 -e .
