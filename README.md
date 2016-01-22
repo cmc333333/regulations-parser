@@ -75,23 +75,33 @@ of changes that need to be made.
 
 ## Requirements
 
+See requirements.txt for current versions.
+
 * Python (2.7)
-* lxml (3.2.0) - Used to parse out information XML from the federal register
-* pyparsing (1.5.7) - Used to do generic parsing on the plain text
-* inflection (0.1.2) - Helps determine pluralization (for terms layer)
-* requests (1.2.3) - Client library for writing output to an API
-* requests_cache (0.4.4) - *Optional* - Library for caching request results
-  (speeds up rebuilding regulations)
-* GitPython (0.3.2.RC1) - Allows the regulation to be written as a git repo
-* python-constraint (1.2) - Used to determine paragraph depth
+* lxml - Used to parse out information XML from the federal register
+* pyparsing - Used to do generic parsing on the plain text
+* inflection - Helps determine pluralization (for terms layer)
+* requests - Client library for writing output to an API
+* cachecontrol - A plugin for requests which caches results (speeds up builds)
+* lockfile - Required by cachecontrol to allow caching to a file
+* GitPython - Allows the regulation to be written as a git repo
+* python-constraint - Used to determine paragraph depth
+* click - A command-line interface library for the `eregs` command
+* coloredlogs - Pretty printing for logs
+* dagger - For dependency (between build steps) management
+* ipdb - For debugging output
+* json-delta - Displays clean diffs between JSON trees. Used in the
+  `compare_to` subcommand
 
-If running tests:
+If running tests (See requirements_test.txt for current versions.):
 
-* nose (1.2.1) - A pluggable test runner
-* mock (1.0.1) - Makes constructing mock objects/functions easy
-* coverage (3.6) - Reports on test coverage
-* cov-core (1.7) - Needed by coverage
-* nose-cov (1.6) - Connects nose to coverage
+* nose - A pluggable test runner
+* mock - Makes constructing mock objects/functions easy
+* coverage - Reports on test coverage
+* nose-cov - Connects nose to coverage
+* datatree - A DSL for XML construction
+* flake8 - Linting
+* httpretty - A library to mock `requests` results
 
 ## API Docs
 
@@ -485,13 +495,10 @@ generating diffs (currently an n**2 operation). Generally, parsing will take
 less than ten minutes, but in the extreme example of reg Z, it currently
 requires several hours.
 
-There are a few methods to speed up this process. Installing `requests-cache`
-will cache API-read calls (such as those made when calling the Federal
-Register). The cache lives in an sqlite database (`fr_cache.sqlite`), which
-can be safely removed without error. The `build_from` pipeline can also
-include checkpoints -- that is, saving the state of the process up until some
-point in time. To activate this feature, pass in a directory name to the
-`--checkpoint` flag, e.g.
+To speed this up, the `build_from` subcommand can be configured to include
+checkpoints -- that is, saving the state of the process up until some point in
+time. To activate this feature, pass in a directory name to the `--checkpoint`
+flag, e.g.
 
 ```bash
 $ eregs build_from CFR-2012-title12-vol8-part1004.xml 12 --checkpoint my-checkpoint-dir
