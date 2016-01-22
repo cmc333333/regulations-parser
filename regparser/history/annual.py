@@ -4,10 +4,9 @@ import logging
 import os
 import re
 
-import requests
-
 from regparser.federalregister import fetch_notice_json
 from regparser.history.delays import modify_effective_dates
+from regparser.http_client import cache_streamed, http_client
 from regparser.index import xml_sync
 from regparser.notice.build import build_notice
 from regparser.tree.xml_parser.xml_wrapper import XMLWrapper
@@ -30,7 +29,7 @@ class Volume(namedtuple('Volume', ['year', 'title', 'vol_num'])):
     @property
     def response(self):
         if self._response is None:
-            self._response = requests.get(self.url, stream=True)
+            self._response = http_client.get(self.url, stream=True)
         return self._response
 
     @property
@@ -64,6 +63,8 @@ class Volume(namedtuple('Volume', ['year', 'title', 'vol_num'])):
                 logging.warning('No <PARTS> in %s. Assuming this volume '
                                 'contains all of the regs', self.url)
                 self._part_span = (1, None)
+
+            cache_streamed(self.response)
         return self._part_span
 
     def should_contain(self, part):
@@ -89,7 +90,7 @@ class Volume(namedtuple('Volume', ['year', 'title', 'vol_num'])):
             if os.path.isfile(xml_path):
                 with open(xml_path) as f:
                     return XMLWrapper(f.read(), xml_path)
-        response = requests.get(url)
+        response = http_client.get(url)
         if response.status_code == 200:
             return XMLWrapper(response.content, url)
 
