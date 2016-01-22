@@ -3,10 +3,8 @@ import shutil
 
 import click
 
+from regparser import http_client
 from regparser.index import entry
-
-
-SQLITE_CACHE = 'fr_cache.sqlite'
 
 
 @click.command()
@@ -31,5 +29,5 @@ def clear(path, http_cache):
         else:
             click.echo("Warning: path does not exist: " + path)
 
-    if http_cache and os.path.exists(SQLITE_CACHE):
-        os.remove(SQLITE_CACHE)
+    if http_cache and os.path.exists(http_client.CACHE_DIR):
+        shutil.rmtree(http_client.CACHE_DIR)
