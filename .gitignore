@@ -10,7 +10,6 @@ docs/_build
 
 regparser.egg-info/
 
+# caches
 .eregs_index/
-
-# eregs output
-/fr_cache.sqlite
+.http_cache/
