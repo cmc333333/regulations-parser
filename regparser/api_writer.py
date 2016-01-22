@@ -4,10 +4,10 @@ import shutil
 
 from git import Repo
 from git.exc import InvalidGitRepositoryError
-import requests
 
-from regparser.tree.struct import Node, NodeEncoder
+from regparser.http_client import http_client
 from regparser.notice.encoder import AmendmentEncoder
+from regparser.tree.struct import Node, NodeEncoder
 import settings
 
 
@@ -41,7 +41,7 @@ class APIWriteContent:
 
     def write(self, python_obj):
         """Write the object (as json) to the API"""
-        requests.post(
+        http_client.post(
             self.path,
             data=AmendmentNodeEncoder().encode(python_obj),
             headers={'content-type': 'application/json'})

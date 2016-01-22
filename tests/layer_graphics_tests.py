@@ -1,26 +1,29 @@
 from unittest import TestCase
 
-from mock import patch, Mock
+import httpretty
+from mock import patch
 
 from regparser.layer.graphics import Graphics
 from regparser.tree.struct import Node
 import settings
+from tests.http_mixin import HttpMixin
 
 
-class LayerGraphicsTest(TestCase):
-
+class LayerGraphicsTest(HttpMixin, TestCase):
     def setUp(self):
+        super(LayerGraphicsTest, self).setUp()
         self.default_url = settings.DEFAULT_IMAGE_URL
 
     def tearDown(self):
         settings.DEFAULT_IMAGE_URL = self.default_url
+        super(LayerGraphicsTest, self).tearDown()
 
     def test_process(self):
         node = Node("Testing ![ex](ABCD) then some more XXX " +
                     "some more ![222](XXX) followed by ![ex](ABCD) and XXX " +
                     "and ![](NOTEXT)")
         g = Graphics(None)
-        with patch('regparser.layer.graphics.requests'):
+        with patch('regparser.layer.graphics.http_client'):
             result = g.process(node)
         self.assertEqual(3, len(result))
         found = [False, False, False]
@@ -46,7 +49,7 @@ class LayerGraphicsTest(TestCase):
     def test_process_format(self):
         node = Node("![A88 Something](ER22MY13.257-1)")
         g = Graphics(None)
-        with patch('regparser.layer.graphics.requests'):
+        with patch('regparser.layer.graphics.http_client'):
             self.assertEqual(1, len(g.process(node)))
 
     @patch('regparser.layer.graphics.content')
@@ -56,7 +59,7 @@ class LayerGraphicsTest(TestCase):
 
         node = Node("![Alt1](img1)   ![Alt2](f)  ![Alt3](a)")
         g = Graphics(None)
-        with patch('regparser.layer.graphics.requests'):
+        with patch('regparser.layer.graphics.http_client'):
             results = g.process(node)
         self.assertEqual(3, len(results))
         found = [False, False, False]
@@ -71,28 +74,21 @@ class LayerGraphicsTest(TestCase):
 
     def test_find_thumb1(self):
         node = Node("![alt1](img1)")
-        settings.DEFAULT_IMAGE_URL = "%s.png"
+        settings.DEFAULT_IMAGE_URL = "http://example.com/%s.png"
         g = Graphics(None)
-        with patch('regparser.layer.graphics.requests') as requests:
-            response = Mock()
-            requests.head.return_value = response
-            requests.codes.not_implemented = 501
-            requests.codes.ok = 200
-            response.status_code = 200
-            results = g.process(node)
+        self.expect_http(method=httpretty.HEAD)
+        results = g.process(node)
 
         for result in results:
-            self.assertEqual(result['thumb_url'], 'img1.thumb.png')
+            self.assertEqual(result['thumb_url'],
+                             'http://example.com/img1.thumb.png')
 
     def test_find_thumb2(self):
         node = Node("![alt2](img2)")
-        settings.DEFAULT_IMAGE_URL = "%s.png"
+        settings.DEFAULT_IMAGE_URL = "http://example.com/%s.png"
         g = Graphics(None)
-        with patch('regparser.layer.graphics.requests') as requests:
-            response = Mock()
-            requests.head.return_value = response
-            response.status_code = 404
-            results = g.process(node)
+        self.expect_http(method=httpretty.HEAD, status=404)
+        results = g.process(node)
 
         for result in results:
             self.assertTrue('thumb_url' not in result)

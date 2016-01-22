@@ -1,5 +1,4 @@
-import requests
-
+from regparser.http_client import http_client
 from regparser.notice.build import build_notice
 
 FR_BASE = "https://www.federalregister.gov"
@@ -25,7 +24,8 @@ def fetch_notice_json(cfr_title, cfr_part, only_final=False,
         params["conditions[type][]"] = 'RULE'
     if max_effective_date:
         params["conditions[effective_date][lte]"] = max_effective_date
-    response = requests.get(API_BASE + "articles", params=params).json()
+    params = sorted(params.items())     # consistent order
+    response = http_client.get(API_BASE + "articles", params=params).json()
     if 'results' in response:
         return response['results']
     else:
@@ -47,6 +47,7 @@ def meta_data(document_number, fields=None):
     params = {}     # default fields are generally good
     if fields:
         params["fields[]"] = fields
-    response = requests.get(url, params=params)
+    params = sorted(params.items())     # consistent order
+    response = http_client.get(url, params=params)
     response.raise_for_status()
     return response.json()

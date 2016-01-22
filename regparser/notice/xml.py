@@ -6,10 +6,10 @@ import os
 from urlparse import urlparse
 
 from lxml import etree
-import requests
 
 from regparser.grammar.unified import notice_cfr_p
 from regparser.history.delays import delays_in_sentence
+from regparser.http_client import http_client
 from regparser.index import xml_sync
 from regparser.notice.dates import fetch_dates
 from regparser.tree.xml_parser.xml_wrapper import XMLWrapper
@@ -158,7 +158,7 @@ def notice_xmls_for_url(doc_num, notice_url):
                 yield NoticeXML(f.read(), local_notice_file).preprocess()
     else:
         logging.info("fetching notice xml for %s", notice_url)
-        content = requests.get(notice_url).content
+        content = http_client.get(notice_url).content
         yield NoticeXML(content, notice_url).preprocess()
 
 

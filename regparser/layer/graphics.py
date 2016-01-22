@@ -4,6 +4,7 @@ import re
 import requests
 
 from regparser import content
+from regparser.http_client import http_client
 from regparser.layer.layer import Layer
 import settings
 
@@ -13,10 +14,10 @@ class Graphics(Layer):
 
     def check_for_thumb(self, url):
         thumb_url = re.sub(r'(.(png|gif|jpg))$', '.thumb' + '\\1', url)
-        response = requests.head(thumb_url)
+        response = http_client.head(thumb_url)
 
         if response.status_code == requests.codes.not_implemented:
-            response = requests.get(thumb_url)
+            response = http_client.get(thumb_url)
 
         if response.status_code == requests.codes.ok:
             return thumb_url
