@@ -9,6 +9,7 @@ setup(
         'License :: CC0 1.0 Universal (CC0 1.0) Public Domain Dedication'
     ],
     install_requires=[
+        "CacheControl",
         "click",
         "coloredLogs",
         "dagger",
@@ -16,11 +17,11 @@ setup(
         "inflection",
         "ipdb",
         "json-delta",
+        "lockfile",     # optional dep used by cache control
         "lxml",
         "pyparsing",
         "python-constraint",
         "requests",
-        "requests-cache"
     ],
     entry_points={"console_scripts": ["eregs=eregs:main"]}
 )
