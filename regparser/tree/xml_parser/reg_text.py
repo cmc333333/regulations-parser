@@ -154,16 +154,15 @@ def build_subjgrp(reg_part, subjgrp_xml, letter_list):
     return subjgrp
 
 
-ParagraphMarker = namedtuple('ParagraphMarker', ['char', 'text'])
-
-
-def _deeper_level(first, second):
-    """Is the second marker deeper than the first"""
-    for level1 in p_level_of(first):
-        for level2 in p_level_of(second):
-            if level1 < level2:
-                return True
-    return False
+class RegtextMarker(namedtuple('RegtextMarker', ['char', 'text'])):
+    def deeper_than(self, other):
+        """Based a known regtext hierarchy, is `self` on a deeper level than
+        `other`"""
+        for level1 in p_level_of(self.char):
+            for level2 in p_level_of(other.char):
+                if level1 > level2:
+                    return True
+        return False
 
 
 def _continues_collapsed(first, second):
@@ -185,19 +184,19 @@ def _continues_collapsed(first, second):
 def get_markers(text, next_marker=None):
     """ Extract all the paragraph markers from text. Do some checks on the
     collapsed markers."""
-    initial = [m.char for m in initial_markers(text)]
+    initial = initial_markers(text)
     if next_marker is None:
         collapsed = []
     else:
-        collapsed = [m.char for m in collapsed_markers(text)]
+        collapsed = collapsed_markers(text)
 
     #   Check that the collapsed markers make sense:
     #   * at least one level below the initial marker
     #   * followed by a marker in sequence
     if initial and collapsed:
-        collapsed = [c for c in collapsed if _deeper_level(initial[-1], c)]
+        collapsed = [c for c in collapsed if c.deeper_than(initial[-1])]
         for marker in reversed(collapsed):
-            if _continues_collapsed(marker, next_marker):
+            if _continues_collapsed(marker.char, next_marker):
                 break
             else:
                 collapsed.pop()
@@ -206,12 +205,12 @@ def get_markers(text, next_marker=None):
 
 
 def _any_depth_parse(match):
-    """Convert an any_depth_p match into the appropriate ParagraphMarkers"""
+    """Convert an any_depth_p match into the appropriate RegtextMarker"""
     markers = [match.p1, match.p2, match.p3, match.p4, match.p5, match.p6]
     for idx in (4, 5):
         if markers[idx]:
             markers[idx] = '<E T="03">{}</E>'.format(markers[idx])
-    return [ParagraphMarker(char=m, text='({})'.format(m))
+    return [RegtextMarker(char=m, text='({})'.format(m))
             for m in markers if m]
 
 
@@ -222,7 +221,7 @@ def initial_markers(text):
     """Pull out a list of the first paragraph markers, i.e. markers before any
     text"""
     try:
-        return any_depth_p.parseString(text)
+        return list(any_depth_p.parseString(text))
     except pyparsing.ParseException:
         return []
 
@@ -237,15 +236,11 @@ def collapsed_markers(text):
     """Not all paragraph markers are at the beginning of of the text. This
     grabs inner markers like (1) and (i) here:
     (c) cContent —(1) 1Content (i) iContent"""
-
     potential = [triplet for triplet in _collapsed_grammar.scanString(text)]
-
     #   remove any that overlap with citations
     potential = [trip for trip in remove_citation_overlaps(text, potential)]
-
     #   flatten the results
     potential = [pm for pms, _, _ in potential for pm in pms]
-
     #   remove any matches that aren't (a), (1), (i), etc. -- All other
     #   markers can't be collapsed
     first_markers = [level[0] for level in p_levels]
@@ -321,6 +316,7 @@ class ParagraphMatcher(paragraph_processor.BaseMatcher):
         text = ''
         tagged_text = tree_utils.get_node_text_tags_preserved(xml).strip()
         markers_list = get_markers(tagged_text, self.next_marker(xml))
+        markers_list = [m.char for m in markers_list]
         nodes = []
         for m, node_text in get_markers_and_text(xml, markers_list):
             text, tagged_text = node_text
@@ -346,7 +342,7 @@ class ParagraphMatcher(paragraph_processor.BaseMatcher):
             tagged_text = tree_utils.get_node_text_tags_preserved(node)
             markers = get_markers(tagged_text.strip())
             if markers:
-                return markers[0]
+                return markers[0].char
 
 
 class RegtextParagraphProcessor(paragraph_processor.ParagraphProcessor):

@@ -525,7 +525,8 @@ class RegTextTest(XMLBuilderMixin, NodeAccessorMixin, TestCase):
     def test_get_markers(self):
         text = u'(a) <E T="03">Transfer </E>—(1) <E T="03">Notice.</E> follow'
         markers = reg_text.get_markers(text, mtypes.STARS_TAG)
-        self.assertEqual(markers, [u'a', u'1'])
+        self.assertEqual(markers, [reg_text.RegtextMarker('a', '(a)'),
+                                   reg_text.RegtextMarker('1', '(1)')])
 
     def test_get_markers_and_text(self):
         text = u'(a) <E T="03">Transfer </E>—(1) <E T="03">Notice.</E> follow'
@@ -533,6 +534,7 @@ class RegTextTest(XMLBuilderMixin, NodeAccessorMixin, TestCase):
 
         doc = etree.fromstring(wrap)
         markers = reg_text.get_markers(text, mtypes.STARS_TAG)
+        markers = [m.char for m in markers]
         result = reg_text.get_markers_and_text(doc, markers)
 
         markers = [r[0] for r in result]
@@ -551,6 +553,7 @@ class RegTextTest(XMLBuilderMixin, NodeAccessorMixin, TestCase):
         text = '(A) aaaa. (<E T="03">1</E>) 1111'
         xml = etree.fromstring('<P>%s</P>' % text)
         markers = reg_text.get_markers(text, mtypes.STARS_TAG)
+        markers = [m.char for m in markers]
         result = reg_text.get_markers_and_text(xml, markers)
 
         a, a1 = result
@@ -576,19 +579,25 @@ class RegTextTest(XMLBuilderMixin, NodeAccessorMixin, TestCase):
         text += 'paragraphs (a)(2), (a)(4)(iii), (a)(5), (b) through (d), '
         text += '(f), and (g) with respect to something, (i), (j), (l) '
         text += 'through (p), (q)(1), and (r) with respect to something.'
-        self.assertEqual(['vi'], reg_text.get_markers(text))
+        self.assertEqual([reg_text.RegtextMarker('vi', '(vi)')],
+                         reg_text.get_markers(text))
 
     def test_get_markers_collapsed(self):
         """Only find collapsed markers if they are followed by a marker in
         sequence"""
         text = u'(a) <E T="03">aaa</E>—(1) 111. (i) iii'
-        self.assertEqual(reg_text.get_markers(text), ['a'])
-        self.assertEqual(reg_text.get_markers(text, 'b'), ['a'])
-        self.assertEqual(reg_text.get_markers(text, 'A'), ['a', '1', 'i'])
-        self.assertEqual(reg_text.get_markers(text, 'ii'), ['a', '1', 'i'])
-        self.assertEqual(reg_text.get_markers(text, mtypes.STARS_TAG),
+        self.assertEqual([m.char for m in reg_text.get_markers(text)], ['a'])
+        self.assertEqual([m.char for m in reg_text.get_markers(text, 'b')],
+                         ['a'])
+        self.assertEqual([m.char for m in reg_text.get_markers(text, 'A')],
                          ['a', '1', 'i'])
-        self.assertEqual(reg_text.get_markers(text, '2'), ['a', '1'])
+        self.assertEqual([m.char for m in reg_text.get_markers(text, 'ii')],
+                         ['a', '1', 'i'])
+        self.assertEqual(
+            [m.char for m in reg_text.get_markers(text, mtypes.STARS_TAG)],
+            ['a', '1', 'i'])
+        self.assertEqual([m.char for m in reg_text.get_markers(text, '2')],
+                         ['a', '1'])
 
     @patch('regparser.tree.xml_parser.reg_text.content')
     def test_preprocess_xml(self, content):
@@ -656,15 +665,15 @@ class RegTextTest(XMLBuilderMixin, NodeAccessorMixin, TestCase):
         text = '(k)(2)(iii) abc (j)'
         result = [m for m in reg_text.initial_markers(text)]
         self.assertEqual(result, [
-            reg_text.ParagraphMarker('k', '(k)'),
-            reg_text.ParagraphMarker('2', '(2)'),
-            reg_text.ParagraphMarker('iii', '(iii)')])
+            reg_text.RegtextMarker('k', '(k)'),
+            reg_text.RegtextMarker('2', '(2)'),
+            reg_text.RegtextMarker('iii', '(iii)')])
 
         text = '(i)(A) The minimum period payment'
         result = [m for m in reg_text.initial_markers(text)]
         self.assertEqual(result, [
-            reg_text.ParagraphMarker('i', '(i)'),
-            reg_text.ParagraphMarker('A', '(A)')])
+            reg_text.RegtextMarker('i', '(i)'),
+            reg_text.RegtextMarker('A', '(A)')])
 
     def test_collapsed_markers(self):
         """We're expecting to find collapsed markers when they have certain
@@ -672,7 +681,7 @@ class RegTextTest(XMLBuilderMixin, NodeAccessorMixin, TestCase):
         appropriate prefix"""
         text = u'(a) <E T="03">Transfer </E>—(1) <E T="03">Notice.</E> follow'
         markers = reg_text.collapsed_markers(text)
-        self.assertEqual(markers, [reg_text.ParagraphMarker('1', '(1)')])
+        self.assertEqual(markers, [reg_text.RegtextMarker('1', '(1)')])
 
         text = '(1) See paragraph (a) for more'
         self.assertEqual([], reg_text.collapsed_markers(text))
@@ -682,12 +691,12 @@ class RegTextTest(XMLBuilderMixin, NodeAccessorMixin, TestCase):
 
         text = u'(a) <E T="03">Transfer—</E>(1) <E T="03">Notice.</E> follow'
         self.assertEqual(reg_text.collapsed_markers(text),
-                         [reg_text.ParagraphMarker('1', '(1)')])
+                         [reg_text.RegtextMarker('1', '(1)')])
 
         text = u'(a) <E T="03">Keyterm</E>—(1)(i) Content'
         self.assertEqual(reg_text.collapsed_markers(text),
-                         [reg_text.ParagraphMarker('1', '(1)'),
-                          reg_text.ParagraphMarker('i', '(i)')])
+                         [reg_text.RegtextMarker('1', '(1)'),
+                          reg_text.RegtextMarker('i', '(i)')])
 
         text = "(C) The information required by paragraphs (a)(2), "
         text += "(a)(4)(iii), (a)(5), (b) through (d), (i), (l) through (p)"
