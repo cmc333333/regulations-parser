@@ -1,4 +1,5 @@
 # vim: set encoding=utf-8
+from collections import namedtuple
 import re
 
 from lxml import etree
@@ -6,8 +7,7 @@ import pyparsing
 
 from regparser import content
 from regparser.citations import remove_citation_overlaps
-from regparser.grammar.unified import any_depth_p
-from regparser.grammar.utils import QuickSearchable
+from regparser.grammar import unified
 from regparser.tree import reg_text
 from regparser.tree.depth import markers as mtypes, optional_rules
 from regparser.tree.struct import Node
@@ -154,6 +154,9 @@ def build_subjgrp(reg_part, subjgrp_xml, letter_list):
     return subjgrp
 
 
+ParagraphMarker = namedtuple('ParagraphMarker', ['char', 'text'])
+
+
 def _deeper_level(first, second):
     """Is the second marker deeper than the first"""
     for level1 in p_level_of(first):
@@ -182,11 +185,11 @@ def _continues_collapsed(first, second):
 def get_markers(text, next_marker=None):
     """ Extract all the paragraph markers from text. Do some checks on the
     collapsed markers."""
-    initial = initial_markers(text)
+    initial = [m.char for m in initial_markers(text)]
     if next_marker is None:
         collapsed = []
     else:
-        collapsed = collapsed_markers(text)
+        collapsed = [m.char for m in collapsed_markers(text)]
 
     #   Check that the collapsed markers make sense:
     #   * at least one level below the initial marker
@@ -202,33 +205,32 @@ def get_markers(text, next_marker=None):
     return initial + collapsed
 
 
+def _any_depth_parse(match):
+    """Convert an any_depth_p match into the appropriate ParagraphMarkers"""
+    markers = [match.p1, match.p2, match.p3, match.p4, match.p5, match.p6]
+    for idx in (4, 5):
+        if markers[idx]:
+            markers[idx] = '<E T="03">{}</E>'.format(markers[idx])
+    return [ParagraphMarker(char=m, text='({})'.format(m))
+            for m in markers if m]
+
+
+any_depth_p = unified.any_depth_p.copy().setParseAction(_any_depth_parse)
+
+
 def initial_markers(text):
     """Pull out a list of the first paragraph markers, i.e. markers before any
     text"""
-    for citation, start, end in any_depth_p.scanString(text):
-        if start == 0:
-            markers = [citation.p1, citation.p2, citation.p3, citation.p4,
-                       citation.p5, citation.p6]
-            if markers[4]:
-                markers[4] = '<E T="03">' + markers[4] + '</E>'
-            if markers[5]:
-                markers[5] = '<E T="03">' + markers[5] + '</E>'
-            return list(filter(bool, markers))
-    return []
+    try:
+        return any_depth_p.parseString(text)
+    except pyparsing.ParseException:
+        return []
 
 
-_first_markers = []
-for idx, level in enumerate(p_levels):
-    marker = (pyparsing.Suppress(pyparsing.Regex(u',|\.|-|—|>')) +
-              pyparsing.Suppress('(') +
-              pyparsing.Literal(level[0]) +
-              pyparsing.Suppress(')'))
-    for inner_idx in range(idx + 1, len(p_levels)):
-        inner_level = p_levels[inner_idx]
-        marker += pyparsing.Optional(pyparsing.Suppress('(') +
-                                     pyparsing.Literal(inner_level[0]) +
-                                     pyparsing.Suppress(')'))
-    _first_markers.append(QuickSearchable(marker))
+_collapsed_grammar = (
+    # A guard to reduce false positives
+    pyparsing.Suppress(pyparsing.Regex(u',|\.|-|—|>')) +
+    any_depth_p)
 
 
 def collapsed_markers(text):
@@ -236,19 +238,20 @@ def collapsed_markers(text):
     grabs inner markers like (1) and (i) here:
     (c) cContent —(1) 1Content (i) iContent"""
 
-    matches = []
-    for parser in _first_markers:
-        matches.extend(parser.scanString(text))
-
-    #   remove matches at the beginning
-    if matches and matches[0][1] == 0:
-        matches = matches[1:]
+    potential = [triplet for triplet in _collapsed_grammar.scanString(text)]
 
     #   remove any that overlap with citations
-    matches = [m for m, _, _ in remove_citation_overlaps(text, matches)]
+    potential = [trip for trip in remove_citation_overlaps(text, potential)]
 
-    #   get the letters; poor man's flatten
-    return reduce(lambda lhs, rhs: list(lhs) + list(rhs), matches, [])
+    #   flatten the results
+    potential = [pm for pms, _, _ in potential for pm in pms]
+
+    #   remove any matches that aren't (a), (1), (i), etc. -- All other
+    #   markers can't be collapsed
+    first_markers = [level[0] for level in p_levels]
+    potential = [pm for pm in potential if pm.char in first_markers]
+
+    return potential
 
 
 def get_markers_and_text(node, markers_list):

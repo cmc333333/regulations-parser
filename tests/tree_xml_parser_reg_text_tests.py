@@ -655,11 +655,16 @@ class RegTextTest(XMLBuilderMixin, NodeAccessorMixin, TestCase):
         markers at the beginning of the text"""
         text = '(k)(2)(iii) abc (j)'
         result = [m for m in reg_text.initial_markers(text)]
-        self.assertEqual(['k', '2', 'iii'], result)
+        self.assertEqual(result, [
+            reg_text.ParagraphMarker('k', '(k)'),
+            reg_text.ParagraphMarker('2', '(2)'),
+            reg_text.ParagraphMarker('iii', '(iii)')])
 
         text = '(i)(A) The minimum period payment'
         result = [m for m in reg_text.initial_markers(text)]
-        self.assertEqual(['i', 'A'], result)
+        self.assertEqual(result, [
+            reg_text.ParagraphMarker('i', '(i)'),
+            reg_text.ParagraphMarker('A', '(A)')])
 
     def test_collapsed_markers(self):
         """We're expecting to find collapsed markers when they have certain
@@ -667,7 +672,7 @@ class RegTextTest(XMLBuilderMixin, NodeAccessorMixin, TestCase):
         appropriate prefix"""
         text = u'(a) <E T="03">Transfer </E>—(1) <E T="03">Notice.</E> follow'
         markers = reg_text.collapsed_markers(text)
-        self.assertEqual(markers, [u'1'])
+        self.assertEqual(markers, [reg_text.ParagraphMarker('1', '(1)')])
 
         text = '(1) See paragraph (a) for more'
         self.assertEqual([], reg_text.collapsed_markers(text))
@@ -676,10 +681,13 @@ class RegTextTest(XMLBuilderMixin, NodeAccessorMixin, TestCase):
         self.assertEqual([], reg_text.collapsed_markers(text))
 
         text = u'(a) <E T="03">Transfer—</E>(1) <E T="03">Notice.</E> follow'
-        self.assertEqual([u'1'], reg_text.collapsed_markers(text))
+        self.assertEqual(reg_text.collapsed_markers(text),
+                         [reg_text.ParagraphMarker('1', '(1)')])
 
         text = u'(a) <E T="03">Keyterm</E>—(1)(i) Content'
-        self.assertEqual(['1', 'i'], reg_text.collapsed_markers(text))
+        self.assertEqual(reg_text.collapsed_markers(text),
+                         [reg_text.ParagraphMarker('1', '(1)'),
+                          reg_text.ParagraphMarker('i', '(i)')])
 
         text = "(C) The information required by paragraphs (a)(2), "
         text += "(a)(4)(iii), (a)(5), (b) through (d), (i), (l) through (p)"

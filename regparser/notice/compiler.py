@@ -106,7 +106,7 @@ def overwrite_marker(origin, new_label):
     if origin.node_type == Node.REGTEXT:
         marker_list = reg_text.initial_markers(origin.text)
         if len(marker_list) > 0:
-            marker = '(%s)' % marker_list[0]
+            marker = marker_list[0].text
             new_marker = '(%s)' % new_label
             origin.text = origin.text.replace(marker, new_marker, 1)
     elif origin.node_type == Node.INTERP:
