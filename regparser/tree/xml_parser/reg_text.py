@@ -1,5 +1,4 @@
 # vim: set encoding=utf-8
-from collections import namedtuple
 import re
 
 from lxml import etree
@@ -154,7 +153,18 @@ def build_subjgrp(reg_part, subjgrp_xml, letter_list):
     return subjgrp
 
 
-class RegtextMarker(namedtuple('RegtextMarker', ['char', 'text'])):
+class RegtextMarker(object):
+    """A container for representations of regtext paragraph markers.
+    @param char: the short (usually one character) identifier
+    @param text: the full marker, including parentheses, periods, etc.
+    e.g. RegtextMarker('ii', '(ii)') or RegtextMarker('b', '(b) - (d)')"""
+    def __init__(self, char, text=''):
+        self.char = char
+        self.text = text
+
+    def __cmp__(self, other):
+        return (self.char, self.text) < (other.char, other.text)
+
     def deeper_than(self, other):
         """Based a known regtext hierarchy, is `self` on a deeper level than
         `other`"""
@@ -169,6 +179,12 @@ class RegtextMarker(namedtuple('RegtextMarker', ['char', 'text'])):
         """Remove any emphasis tags around self.text. Useful when searching
         only the plain text of a node"""
         return self.text.replace('<E T="03">', '').replace('</E>', '')
+
+    @classmethod
+    def from_char(cls, char):
+        """Shorthand constructor, as most regtext paragraphs will just have
+        parens around them"""
+        return cls(char, '({})'.format(char))
 
 
 def _continues_collapsed(first, second):
@@ -216,8 +232,7 @@ def _any_depth_parse(match):
     for idx in (4, 5):
         if markers[idx]:
             markers[idx] = '<E T="03">{}</E>'.format(markers[idx])
-    return [RegtextMarker(char=m, text='({})'.format(m))
-            for m in markers if m]
+    return [RegtextMarker.from_char(m) for m in markers if m]
 
 
 any_depth_p = unified.any_depth_p.copy().setParseAction(_any_depth_parse)
@@ -307,7 +322,7 @@ def next_marker(xml):
         node = node.getnext()
 
     if getattr(node, 'tag', None) == mtypes.STARS_TAG:
-        return RegtextMarker(mtypes.STARS_TAG, '')
+        return RegtextMarker(mtypes.STARS_TAG)
     elif node is not None:
         tagged_text = tree_utils.get_node_text_tags_preserved(node)
         markers = get_markers(tagged_text.strip())
@@ -316,6 +331,9 @@ def next_marker(xml):
 
 
 def split_by_markers(xml):
+    """Given an xml node, pull out triplets of
+        (RegtextMarker, plain text, text-with-tags)
+    for each subparagraph found"""
     plain_text = tree_utils.get_node_text(xml, add_spaces=True).strip()
     tagged_text = tree_utils.get_node_text_tags_preserved(xml).strip()
     markers_list = get_markers(tagged_text, next_marker(xml))
