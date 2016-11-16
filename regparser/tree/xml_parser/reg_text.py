@@ -302,7 +302,7 @@ def build_from_section(reg_part, section_xml):
 def next_marker(xml):
     """Find the first marker in a paragraph that follows this xml node.
     May return None"""
-    good_tags = ('P', 'FP', mtypes.STARS_TAG)
+    good_tags = ('P', 'FP', mtypes.STARS_TAG, 'FP-1', 'PSPACE')
 
     node = xml.getnext()
     while node is not None and node.tag not in good_tags:
@@ -338,7 +338,7 @@ def split_by_markers(xml):
 class ParagraphMatcher(paragraph_processor.BaseMatcher):
     """<P>/<FP> with or without initial paragraph markers -- (a)(1)(i) etc."""
     def matches(self, xml):
-        return xml.tag in ('P', 'FP')
+        return xml.tag in ('P', 'FP', 'FP-1', 'PSPACE')
 
     def derive_nodes(self, xml, processor=None):
         nodes = []

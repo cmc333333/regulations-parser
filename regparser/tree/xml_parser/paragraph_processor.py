@@ -231,7 +231,7 @@ class TableMatcher(BaseMatcher):
 
 class HeaderMatcher(BaseMatcher):
     def matches(self, xml):
-        return xml.tag == "HD"
+        return xml.tag in ('HD', 'HED', 'HD1', 'HD2', 'HD3', 'HD4', 'HD5')
 
     def derive_nodes(self, xml, processor=None):
         # This should match HD elements only at lower levels, and for now we'll

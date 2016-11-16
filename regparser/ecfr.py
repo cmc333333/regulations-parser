@@ -34,7 +34,7 @@ def xml_for_title(cfr_title):
 
 
 def title(xml_el):
-    return xml_el.xpath('./HEAD')[0].text
+    return xml_el.xpath('./HEAD')[0].text.strip()
 
 
 def parse_sections(cfr_part, parent_xml):
@@ -63,7 +63,7 @@ def parse_sub_parts_and_groups(cfr_part, part_xml):
         else:
             short = subjgrp_label(title(sub), subject_group_letters)
             subject_group_letters.append(short)
-            label = [cfr_part, 'Subgrp', short]
+            label = [cfr_part, 'Subjgrp', short]
         result.append(Node(
             label=label, title=title(sub), node_type=Node.SUBPART,
             children=parse_sections(cfr_part, sub)
@@ -91,11 +91,13 @@ class ECFRXML(XMLWrapper):
                     children=parse_sub_parts_and_groups(cfr_part, part_xml))
 
 
-class ECFRSectionProcessor(paragraph_processor.ParagraphProcessor):
+class ECFRSectionProcessor(reg_text.RegtextParagraphProcessor):
     MATCHERS = [
         reg_text.ParagraphMatcher(),
         FlatsubtreeMatcher(tags=['EXTRACT'], node_type=Node.EXTRACT),
         NoteMatcher(),
+        FlatsubtreeMatcher(tags=['EXAMPLE']),
+        paragraph_processor.HeaderMatcher(),
         paragraph_processor.IgnoreTagMatcher(
-            'APPRO', 'CITA', 'HEAD', 'SECAUTH')
+            'APPRO', 'CITA', 'EDNOTE', 'HEAD', 'SECAUTH')
     ]
