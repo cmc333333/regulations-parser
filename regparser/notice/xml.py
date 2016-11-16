@@ -17,7 +17,7 @@ from regparser.history.delays import delays_in_sentence
 from regparser.index.http_cache import http_client
 from regparser.notice.amendments import fetch_amendments
 from regparser.notice.dates import fetch_dates
-from regparser.tree.xml_parser.xml_wrapper import XMLWrapper
+from regparser.tree.xml_parser.xml_wrapper import root_property, XMLWrapper
 import settings
 
 logger = logging.getLogger(__name__)
@@ -48,17 +48,6 @@ def add_children(el, children):
         add_children(sub_el, agency["children"])
         el.append(sub_el)
     return el
-
-
-def _root_property(attrib):
-    """We add multiple attributes to the NoticeXML's root element"""
-    def getter(self):
-        return self.xml.attrib.get(attrib)
-
-    def setter(self, value):
-        self.xml.attrib[attrib] = str(value)
-
-    return property(getter, setter)
 
 
 class NoticeXML(XMLWrapper):
@@ -395,10 +384,10 @@ class NoticeXML(XMLWrapper):
             etree.SubElement(container, 'EREGS_SUPPORTING_DOC',
                              **doc._asdict())
 
-    version_id = _root_property('eregs-version-id')
-    fr_html_url = _root_property('fr-html-url')
-    comment_doc_id = _root_property('eregs-comment-doc-id')
-    primary_docket = _root_property('eregs-primary-docket')
+    version_id = root_property('eregs-version-id')
+    fr_html_url = root_property('fr-html-url')
+    comment_doc_id = root_property('eregs-comment-doc-id')
+    primary_docket = root_property('eregs-primary-docket')
 
     def as_dict(self):
         """We use JSON to represent notices in the API. This converts the

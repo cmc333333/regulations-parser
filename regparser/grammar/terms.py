@@ -15,9 +15,9 @@ smart_quotes = QuickSearchable(
 )
 
 e_tag = (
-    Suppress(Regex(r"<E[^>]*>")) +
+    Suppress(Regex(r"<[EI][^>]*>")) +
     keep_pos(OneOrMore(Word(srange("[a-zA-Z-]")))).setResultsName("term") +
-    Suppress(Literal("</E>"))
+    Suppress(Literal("</[EI]>"))
 )
 
 xml_term_parser = QuickSearchable(
@@ -39,10 +39,10 @@ xml_term_parser = QuickSearchable(
 key_term_parser = QuickSearchable(
     LineStart() +
     Optional(Suppress(unified.any_depth_p)) +
-    Suppress(Regex(r"<E[^>]*>")) +
+    Suppress(Regex(r"<[EI][^>]*>")) +
     keep_pos(OneOrMore(Word(srange("[a-zA-Z-,]")))).setResultsName("term") +
     Optional(Suppress(".")) +
-    Suppress(Literal("</E>"))
+    Suppress(Literal("</[EI]>"))
 )
 
 scope_term_type_parser = QuickSearchable(

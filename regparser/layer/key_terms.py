@@ -7,6 +7,7 @@ from regparser.layer.terms import Terms
 
 
 KEYTERM_RE = re.compile(r'<E T="03">(?P<keyterm>[^<]*?)</E>', re.UNICODE)
+ITALIC_RE = re.compile(r'<I>(?P<keyterm>[^<]*?)</I>', re.UNICODE)
 TRIM_FROM_KEYTERM = ['See also', 'See']
 
 
@@ -15,6 +16,8 @@ def keyterm_in_text(tagged_text):
     tags that indicate keyterms are also used for italics, which means some
     non-key term phrases would be lumped in. We eliminate them here."""
     match = KEYTERM_RE.match(tagged_text.strip())
+    if not match:
+        match = ITALIC_RE.match(tagged_text.strip())
     keyterm = ''
     if match:
         keyterm = match.group('keyterm')

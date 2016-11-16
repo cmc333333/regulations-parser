@@ -48,3 +48,19 @@ class XMLWrapper(object):
             return matches[0]
         else:
             return etree.SubElement(self.xml, tag)
+
+
+def root_property(attrib, deserialize_fn=None):
+    """We add multiple attributes to the NoticeXML's root element. Optionally,
+    deserialize the value"""
+    def getter(self):
+        str_value = self.xml.attrib.get(attrib)
+        if deserialize_fn is not None:
+            return deserialize_fn(str_value)
+        else:
+            return str_value
+
+    def setter(self, value):
+        self.xml.attrib[attrib] = str(value)
+
+    return property(getter, setter)
